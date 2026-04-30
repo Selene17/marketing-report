@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>行銷科工作日報系統 (Google 試算表版)</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            400: '#FACC15',
+                            500: '#EAB308',
+                            600: '#CA8A04',
+                        },
+                        dark: {
+                            800: '#1F2937',
+                            900: '#111827',
+                            950: '#030712',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 隱藏原生卷軸但保留滑動功能 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #4B5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6B7280; }
+        
+        /* 讓表格標頭固定 */
+        thead th { position: sticky; top: 0; z-index: 10; }
+
+        /* 載入動畫 */
+        .loader {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #EAB308;
+            border-radius: 50%;
+            width: 20px; height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block; vertical-align: middle; margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .pointer-events-none { pointer-events: none; }
+    </style>
+</head>
+<body class="bg-dark-950 text-gray-200 min-h-screen antialiased flex flex-col">
+
+    <!-- 頂部導覽列 -->
+    <nav class="bg-dark-900 border-b border-gray-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-2 text-gold-400 font-bold text-xl">
+                    <i class="ph-fill ph-kanban"></i>
+                    <span class="hidden sm:inline">行銷科日報系統 <span class="text-xs bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded border border-yellow-800 ml-2 font-normal" id="dbStatus">等待設定...</span></span>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="switchView('form')" id="navFormBtn" class="px-3 py-2 rounded-md text-sm font-medium bg-dark-800 text-gold-400 transition-colors">
+                        <i class="ph ph-pencil-simple mr-1"></i>填寫日報
+                    </button>
+                    <button onclick="switchView('dashboard')" id="navDashBtn" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-dark-700 hover:text-white transition-colors">
+                        <i class="ph ph-chart-bar mr-1"></i>總表匯報
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容區 -->
+    <main class="flex-grow p-4 md:p-8">
+        
+        <!-- ==================== 視圖 1：填寫表單 ==================== -->
+        <div id="viewForm" class="bg-dark-800 p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-2xl mx-auto border-t-4 border-gold-500 relative overflow-hidden transition-opacity duration-300">
+            <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-3/4 h-8 bg-gold-500 blur-3xl opacity-20 pointer-events-none"></div>
+
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-bold text-gold-400 flex items-center justify-center gap-2">
+                    <i class="ph ph-notebook text-3xl"></i>
+                    今日工作日報
+                </h2>
+                <p class="text-gray-400 text-sm mt-1">資料將寫入專屬 Google 試算表</p>
+            </div>
+
+            <form id="dailyReportForm" class="space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">日期</label>
+                        <input type="date" id="reportDate" name="reportDate" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">填寫人</label>
+                        <select id="userName" name="userName" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none">
+                            <option value="" disabled selected>請選擇...</option>
+                            <option value="素慧">素慧</option>
+                            <option value="王晴">王晴</option>
+                            <option value="雅婷">雅婷</option>
+                            <option value="美伶">美伶</option>
+                            <option value="柏樺">柏樺</option>
+                            <option value="渙昇">渙昇</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">工作種類</label>
+                        <select id="workCategory" name="workCategory" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none">
+                            <option value="專案">專案</option>
+                            <option value="例行事項">例行事項</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">項目名稱</label>
+                        <input type="text" id="itemName" name="itemName" placeholder="例如：Discover U 企劃" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1 flex justify-between">
+                        <span>進度</span>
+                        <span class="text-gold-400 font-bold"><span id="progressText">90</span>%</span>
+                    </label>
+                    <input type="range" id="progress" name="progress" min="0" max="100" step="5" value="90" class="w-full h-2 mt-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gold-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">摘要說明</label>
+                    <textarea id="summary" name="summary" rows="3" placeholder="例如：騰學廣告合作案_不合作成效撰寫" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">待解決與解決方案 <span class="text-gray-600 text-xs">(選填)</span></label>
+                    <textarea id="pendingIssues" name="pendingIssues" rows="3" placeholder="紀錄待解決的問題（如：成本），並寫下你思考過的解決方案，展現解決問題的能力！" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">備註 <span class="text-gray-600 text-xs">(選填)</span></label>
+                    <input type="text" id="remarks" name="remarks" placeholder="其他補充事項..." class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500">
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" id="submitBtn" class="w-full bg-gold-500 hover:bg-gold-400 text-dark-950 font-bold rounded-lg py-3 px-4 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                        <i class="ph-bold ph-paper-plane-right text-lg"></i><span>儲存至試算表</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+
+        <!-- ==================== 視圖 2：總表匯報 ==================== -->
+        <div id="viewDashboard" class="hidden max-w-7xl mx-auto transition-opacity duration-300">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                <div>
+                    <h2 class="text-3xl font-bold text-gold-400 flex items-center gap-3">
+                        <i class="ph ph-kanban"></i>行銷科日報總表
+                    </h2>
+                    <p class="text-gray-400 text-sm mt-2">資料讀取自 Google 試算表，點擊右上角重新整理取得最新進度</p>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-3">
+                    <button onclick="switchView('form')" class="bg-transparent hover:bg-dark-800 text-gold-500 border border-gold-500 rounded-lg px-4 py-2 transition-colors flex items-center gap-2">
+                        <i class="ph ph-arrow-left"></i>回填寫頁
+                    </button>
+                    
+                    <button id="refreshBtn" onclick="fetchReports()" class="bg-dark-800 hover:bg-dark-700 text-gray-300 border border-gray-700 rounded-lg px-4 py-2 transition-colors flex items-center gap-2">
+                        <i class="ph ph-arrows-clockwise" id="refreshIcon"></i>重新整理
+                    </button>
+
+                    <input type="file" id="importCsvInput" accept=".csv" class="hidden">
+                    <button id="importCsvBtn" class="bg-dark-800 hover:bg-dark-700 text-gray-300 border border-gray-700 rounded-lg px-4 py-2 transition-colors flex items-center gap-2">
+                        <i class="ph ph-upload-simple"></i>匯入 CSV 至雲端
+                    </button>
+
+                    <button id="exportCsvBtn" class="bg-gold-500 hover:bg-gold-400 text-dark-950 font-bold rounded-lg px-5 py-2 transition-transform transform hover:-translate-y-0.5 flex items-center gap-2">
+                        <i class="ph-bold ph-download-simple text-lg"></i>匯出 CSV 總表
+                    </button>
+                </div>
+            </div>
+
+            <!-- 數據摘要卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-dark-800 p-4 rounded-xl border border-gray-800 border-l-4 border-l-blue-500">
+                    <div class="text-gray-400 text-sm mb-1">今日回報筆數</div>
+                    <div class="text-2xl font-bold" id="statToday">0</div>
+                </div>
+                <div class="bg-dark-800 p-4 rounded-xl border border-gray-800 border-l-4 border-l-green-500">
+                    <div class="text-gray-400 text-sm mb-1">平均進度</div>
+                    <div class="text-2xl font-bold" id="statAvg">0%</div>
+                </div>
+                <div class="bg-dark-800 p-4 rounded-xl border border-gray-800 border-l-4 border-l-red-500">
+                    <div class="text-gray-400 text-sm mb-1">卡關待解決項目</div>
+                    <div class="text-2xl font-bold text-red-400" id="statPending">0</div>
+                </div>
+            </div>
+
+            <!-- 表格區塊 -->
+            <div class="bg-dark-800 rounded-xl border border-gray-800 shadow-2xl overflow-hidden relative">
+                <div class="overflow-x-auto max-h-[600px]">
+                    <table id="reportTable" class="w-full text-left text-sm text-gray-300">
+                        <thead class="text-xs text-gray-400 uppercase bg-dark-900">
+                            <tr>
+                                <th scope="col" class="px-4 py-4 whitespace-nowrap">填寫人</th>
+                                <th scope="col" class="px-4 py-4 whitespace-nowrap">工作種類</th>
+                                <th scope="col" class="px-4 py-4 min-w-[150px]">項目名稱</th>
+                                <th scope="col" class="px-4 py-4 min-w-[200px]">摘要說明</th>
+                                <th scope="col" class="px-4 py-4 min-w-[200px]">待解決與解決方案</th>
+                                <th scope="col" class="px-4 py-4 min-w-[150px]">進度</th>
+                                <th scope="col" class="px-4 py-4 whitespace-nowrap">備註</th>
+                                <th scope="col" class="px-4 py-4 whitespace-nowrap text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody" class="divide-y divide-gray-800">
+                            <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">正在讀取試算表資料...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 編輯視窗 (Modal) ==================== -->
+        <div id="editModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+            <div class="bg-dark-800 p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-2xl border-t-4 border-gold-500 relative max-h-[90vh] overflow-y-auto">
+                <button type="button" onclick="closeEditModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+                
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-gold-400 flex items-center justify-center gap-2">
+                        <i class="ph ph-pencil-simple text-3xl"></i>
+                        編輯工作日報
+                    </h2>
+                </div>
+
+                <form id="editReportForm" class="space-y-4">
+                    <input type="hidden" id="edit_id" name="id">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">日期</label>
+                            <input type="date" id="edit_reportDate" name="reportDate" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">填寫人</label>
+                            <select id="edit_userName" name="userName" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none">
+                                <option value="素慧">素慧</option>
+                                <option value="王晴">王晴</option>
+                                <option value="雅婷">雅婷</option>
+                                <option value="美伶">美伶</option>
+                                <option value="柏樺">柏樺</option>
+                                <option value="渙昇">渙昇</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">工作種類</label>
+                            <select id="edit_workCategory" name="workCategory" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none">
+                                <option value="專案">專案</option>
+                                <option value="例行事項">例行事項</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1">項目名稱</label>
+                            <input type="text" id="edit_itemName" name="itemName" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-1 flex justify-between">
+                            <span>進度</span>
+                            <span class="text-gold-400 font-bold"><span id="edit_progressText">90</span>%</span>
+                        </label>
+                        <input type="range" id="edit_progress" name="progress" min="0" max="100" step="5" class="w-full h-2 mt-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gold-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">摘要說明</label>
+                        <textarea id="edit_summary" name="summary" rows="2" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">待解決與解決方案</label>
+                        <textarea id="edit_pendingIssues" name="pendingIssues" rows="2" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-1">備註</label>
+                        <input type="text" id="edit_remarks" name="remarks" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500">
+                    </div>
+
+                    <div class="pt-4 flex gap-3">
+                        <button type="button" onclick="closeEditModal()" class="flex-1 bg-dark-700 hover:bg-dark-600 text-white font-bold rounded-lg py-2.5 transition-colors">
+                            取消
+                        </button>
+                        <button type="submit" id="editSubmitBtn" class="flex-1 bg-gold-500 hover:bg-gold-400 text-dark-950 font-bold rounded-lg py-2.5 transition-colors flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-check"></i><span>儲存修改至試算表</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ==================== 刪除確認視窗 (Modal) ==================== -->
+        <div id="deleteModal" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 p-4">
+            <div class="bg-dark-800 p-6 rounded-2xl shadow-2xl w-full max-w-sm border-t-4 border-red-500 relative">
+                <div class="text-center mb-6 mt-4">
+                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-900/30 mb-4">
+                        <i class="ph ph-trash text-3xl text-red-500"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-200">確定要從試算表刪除這筆資料？</h3>
+                    <p class="text-sm text-gray-400 mt-2">刪除後將無法恢復，且所有人皆會同步更新。</p>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeDeleteModal()" class="flex-1 bg-dark-700 hover:bg-dark-600 text-white font-bold rounded-lg py-2.5 transition-colors">
+                        取消
+                    </button>
+                    <button type="button" onclick="confirmDelete()" id="confirmDeleteBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg py-2.5 transition-colors flex items-center justify-center">
+                        確認刪除
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 浮動提示 (Toast) -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // ==========================================
+        // ⚠️ 請在下方雙引號內貼上您的 Google Apps Script 部署網址 (Web App URL)
+        // ==========================================
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbyONql0moQcXiLuXeCSNZtFbF0XZ-jwAZ0QMITwLurG8jioHIrZe7LuGcEvd8cNuwyB/exec"; 
+        // ==========================================
+
+        let cloudData = []; 
+        const dbStatus = document.getElementById('dbStatus');
+
+        // --- UI 浮動提示 (Toast) 功能 ---
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) return;
+            
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-green-900/90 border-green-500 text-green-400' : 'bg-red-900/90 border-red-500 text-red-400';
+            const icon = type === 'success' ? 'ph-check-circle' : 'ph-warning-circle';
+            
+            toast.className = `flex items-center gap-2 px-4 py-3 rounded-lg border ${bgClass} shadow-lg transform transition-all duration-300 translate-y-10 opacity-0 backdrop-blur-sm`;
+            toast.innerHTML = `<i class="ph ${icon} text-xl"></i><span>${message}</span>`;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- 從 Google 試算表獲取資料 ---
+        async function fetchReports() {
+            if (!GAS_URL || GAS_URL.includes('在此貼上')) {
+                dbStatus.textContent = '請先設定 GAS_URL';
+                dbStatus.className = "text-xs bg-red-900/50 text-red-400 px-2 py-1 rounded border border-red-800 ml-2 font-normal";
+                return;
+            }
+
+            const refreshIcon = document.getElementById('refreshIcon');
+            if(refreshIcon) refreshIcon.classList.add('animate-spin');
+            
+            try {
+                dbStatus.textContent = '資料讀取中...';
+                dbStatus.className = "text-xs bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded border border-yellow-800 ml-2 font-normal";
+                
+                const response = await fetch(GAS_URL);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    cloudData = result.data || [];
+                    renderTable(cloudData);
+                    updateStats(cloudData);
+                    dbStatus.textContent = '試算表已連線';
+                    dbStatus.className = "text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded border border-green-800 ml-2 font-normal";
+                }
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                dbStatus.textContent = '連線失敗';
+                dbStatus.className = "text-xs bg-red-900/50 text-red-400 px-2 py-1 rounded border border-red-800 ml-2 font-normal";
+                showToast("無法連接至 Google 試算表", "error");
+            } finally {
+                if(refreshIcon) refreshIcon.classList.remove('animate-spin');
+            }
+        }
+
+        // 初始載入
+        fetchReports();
+
+        // --- 通用發送至 Google 試算表函數 ---
+        async function sendToGas(payload) {
+            try {
+                const response = await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.status !== 'success') throw new Error("GAS 處理失敗");
+                return true;
+            } catch (err) {
+                console.error("Post Error:", err);
+                return false;
+            }
+        }
+
+        // --- 畫面切換控制 ---
+        const viewForm = document.getElementById('viewForm');
+        const viewDashboard = document.getElementById('viewDashboard');
+        const navFormBtn = document.getElementById('navFormBtn');
+        const navDashBtn = document.getElementById('navDashBtn');
+
+        function switchView(viewName) {
+            if (viewName === 'form') {
+                viewForm.classList.remove('hidden');
+                viewDashboard.classList.add('hidden');
+                navFormBtn.className = 'px-3 py-2 rounded-md text-sm font-medium bg-dark-800 text-gold-400 transition-colors';
+                navDashBtn.className = 'px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-dark-700 hover:text-white transition-colors';
+            } else {
+                viewForm.classList.add('hidden');
+                viewDashboard.classList.remove('hidden');
+                navDashBtn.className = 'px-3 py-2 rounded-md text-sm font-medium bg-dark-800 text-gold-400 transition-colors';
+                navFormBtn.className = 'px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-dark-700 hover:text-white transition-colors';
+                fetchReports(); // 切換時順便刷新
+            }
+        }
+
+        // --- 表單填寫與寫入試算表 ---
+        const dateInput = document.getElementById('reportDate');
+        dateInput.value = new Date().toLocaleDateString('en-CA');
+
+        const progressInput = document.getElementById('progress');
+        const progressText = document.getElementById('progressText');
+        progressInput.addEventListener('input', (e) => { progressText.textContent = e.target.value; });
+
+        const form = document.getElementById('dailyReportForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!GAS_URL || GAS_URL.includes('在此貼上')) {
+                showToast("請先在程式碼設定 GAS_URL！", "error");
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-70');
+            submitBtn.innerHTML = '<span class="loader"></span>寫入試算表中...';
+
+            const formData = new FormData(form);
+            const docId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+            
+            const newEntry = {
+                id: docId,
+                date: formData.get('reportDate'),
+                user: formData.get('userName'),
+                category: formData.get('workCategory'),
+                itemName: formData.get('itemName'),
+                summary: formData.get('summary'),
+                pending: formData.get('pendingIssues'),
+                progress: parseInt(formData.get('progress')),
+                remarks: formData.get('remarks'),
+                timestamp: Date.now()
+            };
+            
+            const success = await sendToGas({ action: 'add', data: newEntry });
+            
+            if (success) {
+                showToast("🎉 日報已成功寫入 Google 試算表！");
+                document.getElementById('itemName').value = '';
+                document.getElementById('summary').value = '';
+                document.getElementById('pendingIssues').value = '';
+                document.getElementById('remarks').value = '';
+                progressInput.value = 90;
+                progressText.textContent = '90';
+                fetchReports(); // 背景重整資料
+            } else {
+                showToast("寫入失敗，請檢查網路連線", "error");
+            }
+            
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-70');
+            submitBtn.innerHTML = '<i class="ph-bold ph-paper-plane-right text-lg"></i><span>儲存至試算表</span>';
+        });
+
+        // --- 總表渲染 ---
+        const tableBody = document.getElementById('tableBody');
+
+        function updateStats(data) {
+            const today = new Date().toLocaleDateString('en-CA');
+            document.getElementById('statToday').textContent = data.filter(d => d.date === today).length;
+            
+            const avgProg = data.length ? Math.round(data.reduce((sum, d) => sum + (parseInt(d.progress)||0), 0) / data.length) : 0;
+            document.getElementById('statAvg').textContent = `${avgProg}%`;
+            
+            document.getElementById('statPending').textContent = data.filter(d => d.pending && d.pending.trim() !== '').length;
+        }
+
+        window.toggleGroup = function(dateStr) {
+            const rows = document.querySelectorAll(`.group-row-${dateStr}`);
+            const icon = document.getElementById(`icon-${dateStr}`);
+            
+            let isHidden = false;
+            rows.forEach(row => {
+                if (row.classList.contains('hidden')) {
+                    row.classList.remove('hidden');
+                    isHidden = false;
+                } else {
+                    row.classList.add('hidden');
+                    isHidden = true;
+                }
+            });
+
+            if (isHidden) {
+                icon.classList.replace('ph-caret-down', 'ph-caret-right');
+            } else {
+                icon.classList.replace('ph-caret-right', 'ph-caret-down');
+            }
+        };
+
+        function renderTable(data) {
+            tableBody.innerHTML = '';
+            if (data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">試算表目前尚無資料</td></tr>';
+                return;
+            }
+
+            const groupedData = {};
+            data.forEach(item => {
+                const itemDate = item.date || '未知日期';
+                if (!groupedData[itemDate]) groupedData[itemDate] = [];
+                groupedData[itemDate].push(item);
+            });
+
+            const sortedDates = Object.keys(groupedData).sort((a, b) => new Date(b) - new Date(a));
+
+            sortedDates.forEach(date => {
+                const groupItems = groupedData[date];
+
+                groupItems.sort((a, b) => {
+                    const userCmp = (a.user||'').localeCompare(b.user||'', 'zh-TW');
+                    if (userCmp !== 0) return userCmp;
+                    const itemCmp = (a.itemName||'').localeCompare(b.itemName||'', 'zh-TW');
+                    if (itemCmp !== 0) return itemCmp;
+                    return (b.progress||0) - (a.progress||0); 
+                });
+
+                let formattedDate = date;
+                if(date !== '未知日期') {
+                    const d = new Date(date);
+                    if(!isNaN(d.getTime())) {
+                        formattedDate = `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日`;
+                    }
+                }
+
+                const headerTr = document.createElement('tr');
+                headerTr.className = 'bg-dark-900 border-y border-gray-700 cursor-pointer hover:bg-dark-800 transition-colors select-none';
+                headerTr.onclick = () => window.toggleGroup(date);
+                headerTr.innerHTML = `
+                    <td colspan="8" class="px-4 py-3 font-bold text-gold-400">
+                        <div class="flex items-center gap-2">
+                            <i id="icon-${date}" class="ph-bold ph-caret-down transition-transform text-lg"></i>
+                            <span class="text-base">${formattedDate}</span>
+                            <span class="text-xs font-normal text-gray-500 bg-dark-950 px-2.5 py-0.5 rounded-full ml-2 border border-gray-800">共 ${groupItems.length} 筆</span>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(headerTr);
+
+                groupItems.forEach(row => {
+                    let progress = parseInt(row.progress) || 0;
+                    let progressColor = progress === 100 ? 'bg-green-500' : (progress < 50 ? 'bg-red-500' : 'bg-gold-500');
+                    const pendingHtml = row.pending ? `<span class="text-red-400 font-medium">⚠️ ${row.pending}</span>` : `<span class="text-gray-500 italic">無</span>`;
+
+                    const tr = document.createElement('tr');
+                    tr.className = `hover:bg-dark-700 transition-colors group-row-${date}`;
+                    tr.innerHTML = `
+                        <td class="px-4 py-4 whitespace-nowrap font-medium text-gray-200">${row.user || ''}</td>
+                        <td class="px-4 py-4 whitespace-nowrap"><span class="bg-dark-900 border border-gray-700 px-2 py-1 rounded text-xs text-gray-300">${row.category || ''}</span></td>
+                        <td class="px-4 py-4 text-gray-200 font-medium">${row.itemName || ''}</td>
+                        <td class="px-4 py-4 text-gray-300">${row.summary || ''}</td>
+                        <td class="px-4 py-4 text-sm">${pendingHtml}</td>
+                        <td class="px-4 py-4">
+                            <div class="flex items-center gap-2">
+                                <div class="w-full bg-gray-700 rounded-full h-2"><div class="${progressColor} h-2 rounded-full" style="width: ${progress}%"></div></div>
+                                <span class="text-xs font-bold w-8 text-right">${progress}%</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 text-gray-500 text-sm">${row.remarks || '-'}</td>
+                        <td class="px-4 py-4 whitespace-nowrap text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="openEditModal('${row.id}')" class="text-gold-500 hover:text-gold-400 bg-dark-900 hover:bg-dark-800 border border-gray-700 rounded p-1.5 transition-colors" title="編輯">
+                                    <i class="ph ph-pencil-simple text-lg"></i>
+                                </button>
+                                <button onclick="openDeleteModal('${row.id}')" class="text-red-500 hover:text-red-400 bg-dark-900 hover:bg-dark-800 border border-gray-700 rounded p-1.5 transition-colors" title="刪除">
+                                    <i class="ph ph-trash text-lg"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            });
+        }
+
+        // --- 編輯功能 ---
+        const editModal = document.getElementById('editModal');
+        const editForm = document.getElementById('editReportForm');
+        
+        document.getElementById('edit_progress').addEventListener('input', (e) => { 
+            document.getElementById('edit_progressText').textContent = e.target.value; 
+        });
+
+        window.openEditModal = function(id) {
+            const dataToEdit = cloudData.find(d => d.id === id);
+            if (!dataToEdit) return;
+
+            document.getElementById('edit_id').value = dataToEdit.id;
+            // 試算表傳回的日期可能會帶有時間格式，這裡確保轉為 YYYY-MM-DD
+            let dateVal = dataToEdit.date || '';
+            if(dateVal.includes('T')) dateVal = dateVal.split('T')[0];
+
+            document.getElementById('edit_reportDate').value = dateVal;
+            document.getElementById('edit_userName').value = dataToEdit.user || '';
+            document.getElementById('edit_workCategory').value = dataToEdit.category || '';
+            document.getElementById('edit_itemName').value = dataToEdit.itemName || '';
+            document.getElementById('edit_summary').value = dataToEdit.summary || '';
+            document.getElementById('edit_pendingIssues').value = dataToEdit.pending || '';
+            document.getElementById('edit_remarks').value = dataToEdit.remarks || '';
+            
+            document.getElementById('edit_progress').value = dataToEdit.progress || 0;
+            document.getElementById('edit_progressText').textContent = dataToEdit.progress || 0;
+
+            editModal.classList.remove('hidden');
+            setTimeout(() => editModal.classList.remove('opacity-0'), 10);
+        };
+
+        window.closeEditModal = function() {
+            editModal.classList.add('opacity-0');
+            setTimeout(() => {
+                editModal.classList.add('hidden');
+                editForm.reset();
+            }, 300);
+        };
+
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const editBtn = document.getElementById('editSubmitBtn');
+            const originalContent = editBtn.innerHTML;
+            editBtn.innerHTML = '<i class="ph ph-spinner animate-spin"></i><span>儲存中...</span>';
+            editBtn.disabled = true;
+            
+            const formData = new FormData(editForm);
+            
+            const updatedEntry = {
+                id: formData.get('id'),
+                date: formData.get('reportDate'),
+                user: formData.get('userName'),
+                category: formData.get('workCategory'),
+                itemName: formData.get('itemName'),
+                summary: formData.get('summary'),
+                pending: formData.get('pendingIssues'),
+                progress: parseInt(formData.get('progress')),
+                remarks: formData.get('remarks'),
+                timestamp: Date.now()
+            };
+            
+            const success = await sendToGas({ action: 'update', data: updatedEntry });
+
+            if (success) {
+                closeEditModal();
+                showToast("已成功更新試算表資料！");
+                fetchReports();
+            } else {
+                showToast("更新失敗，請確認連線", "error");
+            }
+            
+            editBtn.innerHTML = originalContent;
+            editBtn.disabled = false;
+        });
+
+        // --- 刪除功能 ---
+        const deleteModal = document.getElementById('deleteModal');
+        let deleteTargetId = null;
+
+        window.openDeleteModal = function(id) {
+            deleteTargetId = id;
+            deleteModal.classList.remove('hidden');
+            setTimeout(() => deleteModal.classList.remove('opacity-0'), 10);
+        };
+
+        window.closeDeleteModal = function() {
+            deleteModal.classList.add('opacity-0');
+            setTimeout(() => {
+                deleteModal.classList.add('hidden');
+                deleteTargetId = null;
+            }, 300);
+        };
+
+        window.confirmDelete = async function() {
+            if (deleteTargetId) {
+                const btn = document.getElementById('confirmDeleteBtn');
+                btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>刪除中...';
+                btn.disabled = true;
+
+                const success = await sendToGas({ action: 'delete', data: deleteTargetId });
+
+                if (success) {
+                    showToast("已從試算表移除該筆資料");
+                    closeDeleteModal();
+                    fetchReports();
+                } else {
+                    showToast("刪除失敗", "error");
+                }
+                
+                btn.innerHTML = '確認刪除';
+                btn.disabled = false;
+            }
+        };
+
+        // --- 匯出 CSV 邏輯 ---
+        document.getElementById('exportCsvBtn').addEventListener('click', () => {
+            let csvContent = [];
+            const headers = ['"日期"', '"填寫人"', '"工作種類"', '"項目名稱"', '"摘要說明"', '"待解決與解決方案"', '"進度"', '"備註"'];
+            csvContent.push(headers.join(','));
+
+            const sortedExportData = [...cloudData].sort((a, b) => {
+                const dateCmp = new Date(b.date || 0) - new Date(a.date || 0);
+                if (dateCmp !== 0) return dateCmp;
+                const userCmp = (a.user||'').localeCompare(b.user||'', 'zh-TW');
+                if (userCmp !== 0) return userCmp;
+                const itemCmp = (a.itemName||'').localeCompare(b.itemName||'', 'zh-TW');
+                if (itemCmp !== 0) return itemCmp;
+                return (b.progress||0) - (a.progress||0);
+            });
+
+            sortedExportData.forEach(row => {
+                const rowData = [
+                    `"${row.date || ''}"`, `"${row.user || ''}"`, `"${row.category || ''}"`, `"${(row.itemName||'').replace(/"/g, '""')}"`,
+                    `"${(row.summary||'').replace(/"/g, '""')}"`, `"${(row.pending||'').replace(/"/g, '""')}"`,
+                    `"${row.progress}%"`, `"${(row.remarks||'').replace(/"/g, '""')}"`
+                ];
+                csvContent.push(rowData.join(','));
+            });
+
+            const blob = new Blob(["\uFEFF" + csvContent.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `行銷科日報總表_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '')}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // --- 匯入 CSV 至試算表邏輯 ---
+        const importCsvInput = document.getElementById('importCsvInput');
+        const importCsvBtn = document.getElementById('importCsvBtn');
+
+        importCsvBtn.addEventListener('click', () => importCsvInput.click());
+
+        importCsvInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const text = event.target.result;
+                const cleanText = text.replace(/^\uFEFF/, ''); 
+                
+                try {
+                    const rows = parseCSV(cleanText);
+                    if (rows.length < 2) {
+                        showToast("CSV 檔案格式錯誤或沒有資料", "error");
+                        return;
+                    }
+
+                    showToast("正在批次上傳至 Google 試算表...", "success");
+                    
+                    let entriesArray = [];
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (row.length < 2 || !row[0].trim()) continue;
+
+                        const safeGet = (arr, index) => (arr[index] || '').trim();
+                        const docId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+                        
+                        entriesArray.push({
+                            id: docId,
+                            date: safeGet(row, 0),
+                            user: safeGet(row, 1),
+                            category: safeGet(row, 2),
+                            itemName: safeGet(row, 3),
+                            summary: safeGet(row, 4),
+                            pending: safeGet(row, 5),
+                            progress: parseInt(safeGet(row, 6).replace('%', '')) || 0,
+                            remarks: safeGet(row, 7),
+                            timestamp: Date.now()
+                        });
+                    }
+                    
+                    // 將整批資料一次傳給 GAS
+                    const success = await sendToGas({ action: 'import', data: entriesArray });
+
+                    if (success) {
+                        showToast(`成功匯入 ${entriesArray.length} 筆資料至試算表！`, "success");
+                        fetchReports();
+                    } else {
+                        showToast("上傳失敗", "error");
+                    }
+                } catch (error) {
+                    console.error("解析或上傳 CSV 時發生錯誤:", error);
+                    showToast("解析 CSV 時發生錯誤。", "error");
+                }
+                
+                importCsvInput.value = ''; 
+            };
+            reader.readAsText(file);
+        });
+
+        function parseCSV(text) {
+            const rows = [];
+            let curRow = [];
+            let curVal = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const nextChar = text[i + 1];
+
+                if (inQuotes) {
+                    if (char === '"' && nextChar === '"') {
+                        curVal += '"';
+                        i++; 
+                    } else if (char === '"') {
+                        inQuotes = false;
+                    } else {
+                        curVal += char;
+                    }
+                } else {
+                    if (char === '"') {
+                        inQuotes = true;
+                    } else if (char === ',') {
+                        curRow.push(curVal);
+                        curVal = '';
+                    } else if (char === '\n' || char === '\r') {
+                        if (char === '\r' && nextChar === '\n') i++; 
+                        curRow.push(curVal);
+                        if (curRow.length > 1 || curRow[0] !== '') {
+                            rows.push(curRow);
+                        }
+                        curRow = [];
+                        curVal = '';
+                    } else {
+                        curVal += char;
+                    }
+                }
+            }
+            if (curRow.length > 0 || curVal !== '') { 
+                 curRow.push(curVal);
+                 if (curRow.length > 1 || curRow[0] !== '') {
+                     rows.push(curRow);
+                 }
+            }
+            return rows;
+        }
+    </script>
+</body>
+</html>
