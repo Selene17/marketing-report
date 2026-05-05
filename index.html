@@ -118,6 +118,7 @@
                         <select id="workCategory" name="workCategory" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none">
                             <option value="專案">專案</option>
                             <option value="例行事項">例行事項</option>
+                            <option value="休假">休假</option>
                         </select>
                     </div>
                     <div>
@@ -297,6 +298,7 @@
                             <select id="edit_workCategory" name="workCategory" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none">
                                 <option value="專案">專案</option>
                                 <option value="例行事項">例行事項</option>
+                                <option value="休假">休假</option>
                             </select>
                         </div>
                         <div>
@@ -483,7 +485,17 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
-                    cloudData = result.data || [];
+                    // 解決時區導致日期減一天的 Bug：將 ISO 時間精準轉成本地 YYYY-MM-DD
+                    cloudData = (result.data || []).map(item => {
+                        if (item.date && item.date.includes('T')) {
+                            const d = new Date(item.date);
+                            if (!isNaN(d.getTime())) {
+                                item.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                            }
+                        }
+                        return item;
+                    });
+                    
                     renderDashboard(); // 替換原本的 renderTable 和 updateStats
                     dbStatus.textContent = '試算表已連線';
                     dbStatus.className = "text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded border border-green-800 ml-2 font-normal";
@@ -610,10 +622,8 @@
             const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             
             document.getElementById('statToday').textContent = data.filter(item => {
-                let itemDate = item.date || '';
-                // 處理試算表回傳的 ISO 時間格式 (擷取 T 前面的日期)
-                if(itemDate.includes('T')) itemDate = itemDate.split('T')[0]; 
-                return itemDate === todayStr;
+                // 資料已在 fetchReports 時標準化，直接精準比對字串
+                return (item.date || '') === todayStr;
             }).length;
             
             const avgProg = data.length ? Math.round(data.reduce((sum, d) => sum + (parseInt(d.progress)||0), 0) / data.length) : 0;
@@ -691,9 +701,10 @@
 
                 let formattedDate = date;
                 if(date !== '未知日期') {
-                    const d = new Date(date);
-                    if(!isNaN(d.getTime())) {
-                        formattedDate = `${d.getFullYear()}年${String(d.getMonth() + 1).padStart(2, '0')}月${String(d.getDate()).padStart(2, '0')}日`;
+                    // 放棄使用 Date 解析以避免跨時區解析 Bug，直接拆解 YYYY-MM-DD 字串
+                    const parts = date.split('-');
+                    if(parts.length === 3) {
+                        formattedDate = `${parts[0]}年${parts[1]}月${parts[2]}日`;
                     }
                 }
 
@@ -762,10 +773,9 @@
             if (!dataToEdit) return;
 
             document.getElementById('edit_id').value = dataToEdit.id;
-            let dateVal = dataToEdit.date || '';
-            if(dateVal.includes('T')) dateVal = dateVal.split('T')[0];
-
-            document.getElementById('edit_reportDate').value = dateVal;
+            
+            // 日期已在源頭標準化為 YYYY-MM-DD，這裡直接帶入即可，解決編輯時減一天的問題
+            document.getElementById('edit_reportDate').value = dataToEdit.date || '';
             document.getElementById('edit_userName').value = dataToEdit.user || '';
             document.getElementById('edit_workCategory').value = dataToEdit.category || '';
             document.getElementById('edit_itemName').value = dataToEdit.itemName || '';
