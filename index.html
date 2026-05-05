@@ -173,6 +173,12 @@
                         <i class="ph ph-arrow-left"></i>回填寫頁
                     </button>
                     
+                    <!-- 新增：搜尋填寫人輸入框 -->
+                    <div class="relative">
+                        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="searchUserInput" placeholder="搜尋填寫人..." class="bg-dark-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 w-36 focus:w-48 transition-all">
+                    </div>
+
                     <button id="refreshBtn" onclick="fetchReports()" class="bg-dark-800 hover:bg-dark-700 text-gray-300 border border-gray-700 rounded-lg px-4 py-2 transition-colors flex items-center gap-2">
                         <i class="ph ph-arrows-clockwise" id="refreshIcon"></i>重新整理
                     </button>
@@ -361,9 +367,10 @@
         let cloudData = []; 
         const dbStatus = document.getElementById('dbStatus');
         
-        // --- 排序狀態管理 ---
+        // --- 排序與搜尋狀態管理 ---
         let currentSortColumn = 'user'; // 預設排序欄位為填寫人
         let currentSortDirection = 'asc'; // 預設排序方向為升冪 (A-Z)
+        let currentSearchUser = ''; // 預設搜尋關鍵字為空
 
         // 更新表頭圖示的 UI 狀態
         function updateSortIcons() {
@@ -399,13 +406,33 @@
             
             updateSortIcons();
             if (cloudData.length > 0) {
-                renderTable(cloudData); // 重新渲染表格
+                renderDashboard(); // 替換為統一的渲染函數
             }
         };
 
         // 在腳本載入時先初始化一次箭頭圖示
         document.addEventListener('DOMContentLoaded', updateSortIcons);
 
+        // 監聽搜尋輸入框
+        document.getElementById('searchUserInput').addEventListener('input', (e) => {
+            currentSearchUser = e.target.value.trim().toLowerCase();
+            renderDashboard(); // 輸入時即時重新渲染
+        });
+
+        // 統一處理過濾、排序與渲染的函數
+        function renderDashboard() {
+            let displayData = cloudData;
+            
+            // 如果有輸入搜尋關鍵字，先進行過濾
+            if (currentSearchUser !== '') {
+                displayData = cloudData.filter(item => 
+                    (item.user || '').toLowerCase().includes(currentSearchUser)
+                );
+            }
+            
+            renderTable(displayData);
+            updateStats(displayData);
+        }
 
         // --- UI 浮動提示 (Toast) 功能 ---
         function showToast(message, type = 'success') {
@@ -448,8 +475,7 @@
                 
                 if (result.status === 'success') {
                     cloudData = result.data || [];
-                    renderTable(cloudData);
-                    updateStats(cloudData);
+                    renderDashboard(); // 替換原本的 renderTable 和 updateStats
                     dbStatus.textContent = '試算表已連線';
                     dbStatus.className = "text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded border border-green-800 ml-2 font-normal";
                 }
@@ -499,13 +525,18 @@
                 viewDashboard.classList.remove('hidden');
                 navDashBtn.className = 'px-3 py-2 rounded-md text-sm font-medium bg-dark-800 text-gold-400 transition-colors';
                 navFormBtn.className = 'px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-dark-700 hover:text-white transition-colors';
-                fetchReports(); // 切換時順便刷新
+                
+                // 如果是切換到 Dashboard，保留先前的搜尋條件並重新渲染
+                renderDashboard();
+                fetchReports(); // 背景取得最新資料
             }
         }
 
         // --- 表單填寫與寫入試算表 ---
         const dateInput = document.getElementById('reportDate');
-        dateInput.value = new Date().toLocaleDateString('en-CA');
+        const todayObj = new Date();
+        const localTodayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+        dateInput.value = localTodayStr;
 
         const progressInput = document.getElementById('progress');
         const progressText = document.getElementById('progressText');
@@ -565,8 +596,16 @@
         const tableBody = document.getElementById('tableBody');
 
         function updateStats(data) {
-            const today = new Date().toLocaleDateString('en-CA');
-            document.getElementById('statToday').textContent = data.filter(d => d.date === today).length;
+            // 安全取得本地日期的 YYYY-MM-DD 格式
+            const d = new Date();
+            const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            
+            document.getElementById('statToday').textContent = data.filter(item => {
+                let itemDate = item.date || '';
+                // 處理試算表回傳的 ISO 時間格式 (擷取 T 前面的日期)
+                if(itemDate.includes('T')) itemDate = itemDate.split('T')[0]; 
+                return itemDate === todayStr;
+            }).length;
             
             const avgProg = data.length ? Math.round(data.reduce((sum, d) => sum + (parseInt(d.progress)||0), 0) / data.length) : 0;
             document.getElementById('statAvg').textContent = `${avgProg}%`;
@@ -822,7 +861,15 @@
             const headers = ['"日期"', '"填寫人"', '"工作種類"', '"項目名稱"', '"摘要說明"', '"待解決與解決方案"', '"進度"', '"備註"'];
             csvContent.push(headers.join(','));
 
-            const sortedExportData = [...cloudData].sort((a, b) => {
+            // 匯出前先套用目前的搜尋過濾條件
+            let exportData = cloudData;
+            if (currentSearchUser !== '') {
+                exportData = cloudData.filter(item => 
+                    (item.user || '').toLowerCase().includes(currentSearchUser)
+                );
+            }
+
+            const sortedExportData = [...exportData].sort((a, b) => {
                 // 1. 日期優先降冪排序
                 const dateCmp = new Date(b.date || 0) - new Date(a.date || 0);
                 if (dateCmp !== 0) return dateCmp;
