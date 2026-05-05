@@ -121,13 +121,13 @@
                             <option value="休假">休假</option>
                         </select>
                     </div>
-                    <div>
+                    <div id="itemNameWrapper">
                         <label class="block text-sm font-medium text-gray-400 mb-1">項目名稱</label>
                         <input type="text" id="itemName" name="itemName" placeholder="例如：Discover U 企劃" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500">
                     </div>
                 </div>
 
-                <div>
+                <div id="progressWrapper">
                     <label class="block text-sm font-medium text-gray-400 mb-1 flex justify-between">
                         <span>進度</span>
                         <span class="text-gold-400 font-bold"><span id="progressText">90</span>%</span>
@@ -135,12 +135,12 @@
                     <input type="range" id="progress" name="progress" min="0" max="100" step="5" value="90" class="w-full h-2 mt-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gold-500">
                 </div>
 
-                <div>
+                <div id="summaryWrapper">
                     <label class="block text-sm font-medium text-gray-400 mb-1">摘要說明</label>
                     <textarea id="summary" name="summary" rows="3" placeholder="例如：騰學廣告合作案_不合作成效撰寫" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"></textarea>
                 </div>
 
-                <div>
+                <div id="pendingWrapper">
                     <label class="block text-sm font-medium text-gray-400 mb-1">待解決與解決方案 <span class="text-gray-600 text-xs">(選填)</span></label>
                     <textarea id="pendingIssues" name="pendingIssues" rows="3" placeholder="紀錄待解決的問題（如：成本），並寫下你思考過的解決方案，展現解決問題的能力！" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"></textarea>
                 </div>
@@ -301,13 +301,13 @@
                                 <option value="休假">休假</option>
                             </select>
                         </div>
-                        <div>
+                        <div id="edit_itemNameWrapper">
                             <label class="block text-sm font-medium text-gray-400 mb-1">項目名稱</label>
                             <input type="text" id="edit_itemName" name="itemName" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500">
                         </div>
                     </div>
 
-                    <div>
+                    <div id="edit_progressWrapper">
                         <label class="block text-sm font-medium text-gray-400 mb-1 flex justify-between">
                             <span>進度</span>
                             <span class="text-gold-400 font-bold"><span id="edit_progressText">90</span>%</span>
@@ -315,12 +315,12 @@
                         <input type="range" id="edit_progress" name="progress" min="0" max="100" step="5" class="w-full h-2 mt-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gold-500">
                     </div>
 
-                    <div>
+                    <div id="edit_summaryWrapper">
                         <label class="block text-sm font-medium text-gray-400 mb-1">摘要說明</label>
                         <textarea id="edit_summary" name="summary" rows="2" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"></textarea>
                     </div>
 
-                    <div>
+                    <div id="edit_pendingWrapper">
                         <label class="block text-sm font-medium text-gray-400 mb-1">待解決與解決方案</label>
                         <textarea id="edit_pendingIssues" name="pendingIssues" rows="2" class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 resize-none"></textarea>
                     </div>
@@ -553,6 +553,37 @@
             }
         }
 
+        // --- 動態隱藏/顯示休假欄位邏輯 ---
+        function toggleLeaveMode(isLeave, prefix = '') {
+            const wrappers = ['itemNameWrapper', 'progressWrapper', 'summaryWrapper', 'pendingWrapper'];
+            const reqFields = ['itemName', 'summary'];
+
+            wrappers.forEach(w => {
+                const el = document.getElementById(prefix + w);
+                if(el) {
+                    if (isLeave) {
+                        el.classList.add('hidden');
+                    } else {
+                        el.classList.remove('hidden');
+                    }
+                }
+            });
+
+            reqFields.forEach(f => {
+                const el = document.getElementById(prefix + f);
+                if(el) {
+                    if (isLeave) {
+                        el.removeAttribute('required');
+                    } else {
+                        el.setAttribute('required', 'required');
+                    }
+                }
+            });
+        }
+
+        document.getElementById('workCategory').addEventListener('change', (e) => toggleLeaveMode(e.target.value === '休假', ''));
+        document.getElementById('edit_workCategory').addEventListener('change', (e) => toggleLeaveMode(e.target.value === '休假', 'edit_'));
+
         // --- 表單填寫與寫入試算表 ---
         const dateInput = document.getElementById('reportDate');
         const todayObj = new Date();
@@ -579,16 +610,17 @@
 
             const formData = new FormData(form);
             const docId = Date.now().toString() + Math.random().toString(36).substring(2, 9);
+            const isLeave = formData.get('workCategory') === '休假';
             
             const newEntry = {
                 id: docId,
                 date: formData.get('reportDate'),
                 user: formData.get('userName'),
                 category: formData.get('workCategory'),
-                itemName: formData.get('itemName'),
-                summary: formData.get('summary'),
-                pending: formData.get('pendingIssues'),
-                progress: parseInt(formData.get('progress')),
+                itemName: isLeave ? '-' : formData.get('itemName'),
+                summary: isLeave ? '休假' : formData.get('summary'),
+                pending: isLeave ? '' : formData.get('pendingIssues'),
+                progress: isLeave ? 0 : parseInt(formData.get('progress')),
                 remarks: formData.get('remarks'),
                 timestamp: Date.now()
             };
@@ -601,6 +633,8 @@
                 document.getElementById('summary').value = '';
                 document.getElementById('pendingIssues').value = '';
                 document.getElementById('remarks').value = '';
+                document.getElementById('workCategory').value = '專案'; // 重置為專案
+                toggleLeaveMode(false, ''); // 恢復欄位顯示
                 progressInput.value = 90;
                 progressText.textContent = '90';
                 fetchReports(); // 背景重整資料
@@ -626,7 +660,9 @@
                 return (item.date || '') === todayStr;
             }).length;
             
-            const avgProg = data.length ? Math.round(data.reduce((sum, d) => sum + (parseInt(d.progress)||0), 0) / data.length) : 0;
+            // 排除休假的資料，避免休假拉低平均進度
+            const validData = data.filter(d => d.category !== '休假');
+            const avgProg = validData.length ? Math.round(validData.reduce((sum, d) => sum + (parseInt(d.progress)||0), 0) / validData.length) : 0;
             document.getElementById('statAvg').textContent = `${avgProg}%`;
             
             document.getElementById('statPending').textContent = data.filter(d => d.pending && d.pending.trim() !== '').length;
@@ -725,8 +761,12 @@
 
                 // 產生資料列
                 groupItems.forEach(row => {
+                    let isLeave = row.category === '休假';
                     let progress = parseInt(row.progress) || 0;
-                    let progressColor = progress === 100 ? 'bg-green-500' : (progress < 50 ? 'bg-red-500' : 'bg-gold-500');
+                    let progressColor = isLeave ? 'bg-gray-600' : (progress === 100 ? 'bg-green-500' : (progress < 50 ? 'bg-red-500' : 'bg-gold-500'));
+                    let progressDisplay = isLeave ? '-' : `${progress}%`;
+                    let progressBarWidth = isLeave ? '0%' : `${progress}%`;
+
                     const pendingHtml = row.pending ? `<span class="text-red-400 font-medium">⚠️ ${row.pending}</span>` : `<span class="text-gray-500 italic">無</span>`;
 
                     const tr = document.createElement('tr');
@@ -739,8 +779,8 @@
                         <td class="px-4 py-4 text-sm">${pendingHtml}</td>
                         <td class="px-4 py-4">
                             <div class="flex items-center gap-2">
-                                <div class="w-full bg-gray-700 rounded-full h-2"><div class="${progressColor} h-2 rounded-full" style="width: ${progress}%"></div></div>
-                                <span class="text-xs font-bold w-8 text-right">${progress}%</span>
+                                <div class="w-full bg-gray-700 rounded-full h-2"><div class="${progressColor} h-2 rounded-full" style="width: ${progressBarWidth}"></div></div>
+                                <span class="text-xs font-bold w-8 text-right">${progressDisplay}</span>
                             </div>
                         </td>
                         <td class="px-4 py-4 text-gray-500 text-sm">${row.remarks || '-'}</td>
@@ -773,11 +813,17 @@
             if (!dataToEdit) return;
 
             document.getElementById('edit_id').value = dataToEdit.id;
-            
-            // 日期已在源頭標準化為 YYYY-MM-DD，這裡直接帶入即可，解決編輯時減一天的問題
-            document.getElementById('edit_reportDate').value = dataToEdit.date || '';
+            // 試算表傳回的日期可能會帶有時間格式，這裡確保轉為 YYYY-MM-DD
+            let dateVal = dataToEdit.date || '';
+            if(dateVal.includes('T')) dateVal = dateVal.split('T')[0];
+
+            document.getElementById('edit_reportDate').value = dateVal;
             document.getElementById('edit_userName').value = dataToEdit.user || '';
             document.getElementById('edit_workCategory').value = dataToEdit.category || '';
+            
+            // 根據是否為休假，動態切換編輯表單欄位顯示狀態
+            toggleLeaveMode(dataToEdit.category === '休假', 'edit_');
+
             document.getElementById('edit_itemName').value = dataToEdit.itemName || '';
             document.getElementById('edit_summary').value = dataToEdit.summary || '';
             document.getElementById('edit_pendingIssues').value = dataToEdit.pending || '';
@@ -807,16 +853,17 @@
             editBtn.disabled = true;
             
             const formData = new FormData(editForm);
+            const isLeave = formData.get('workCategory') === '休假';
             
             const updatedEntry = {
                 id: formData.get('id'),
                 date: formData.get('reportDate'),
                 user: formData.get('userName'),
                 category: formData.get('workCategory'),
-                itemName: formData.get('itemName'),
-                summary: formData.get('summary'),
-                pending: formData.get('pendingIssues'),
-                progress: parseInt(formData.get('progress')),
+                itemName: isLeave ? '-' : formData.get('itemName'),
+                summary: isLeave ? '休假' : formData.get('summary'),
+                pending: isLeave ? '' : formData.get('pendingIssues'),
+                progress: isLeave ? 0 : parseInt(formData.get('progress')),
                 remarks: formData.get('remarks'),
                 timestamp: Date.now()
             };
@@ -912,10 +959,11 @@
             });
 
             sortedExportData.forEach(row => {
+                const isLeave = row.category === '休假';
                 const rowData = [
                     `"${row.date || ''}"`, `"${row.user || ''}"`, `"${row.category || ''}"`, `"${(row.itemName||'').replace(/"/g, '""')}"`,
                     `"${(row.summary||'').replace(/"/g, '""')}"`, `"${(row.pending||'').replace(/"/g, '""')}"`,
-                    `"${row.progress}%"`, `"${(row.remarks||'').replace(/"/g, '""')}"`
+                    `"${isLeave ? '-' : row.progress + '%'}"`, `"${(row.remarks||'').replace(/"/g, '""')}"`
                 ];
                 csvContent.push(rowData.join(','));
             });
