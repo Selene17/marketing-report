@@ -173,10 +173,19 @@
                         <i class="ph ph-arrow-left"></i>回填寫頁
                     </button>
                     
-                    <!-- 新增：搜尋填寫人輸入框 -->
+                    <!-- 新增：過濾填寫人下拉選單 -->
                     <div class="relative">
-                        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        <input type="text" id="searchUserInput" placeholder="搜尋填寫人..." class="bg-dark-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 w-36 focus:w-48 transition-all">
+                        <i class="ph ph-funnel absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        <select id="searchUserSelect" class="bg-dark-900 border border-gray-700 rounded-lg pl-9 pr-8 py-2 text-sm text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none cursor-pointer transition-all">
+                            <option value="">所有填寫人</option>
+                            <option value="素慧">素慧</option>
+                            <option value="王晴">王晴</option>
+                            <option value="雅婷">雅婷</option>
+                            <option value="美伶">美伶</option>
+                            <option value="柏樺">柏樺</option>
+                            <option value="渙昇">渙昇</option>
+                        </select>
+                        <i class="ph-bold ph-caret-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none text-xs"></i>
                     </div>
 
                     <button id="refreshBtn" onclick="fetchReports()" class="bg-dark-800 hover:bg-dark-700 text-gray-300 border border-gray-700 rounded-lg px-4 py-2 transition-colors flex items-center gap-2">
@@ -413,20 +422,20 @@
         // 在腳本載入時先初始化一次箭頭圖示
         document.addEventListener('DOMContentLoaded', updateSortIcons);
 
-        // 監聽搜尋輸入框
-        document.getElementById('searchUserInput').addEventListener('input', (e) => {
-            currentSearchUser = e.target.value.trim().toLowerCase();
-            renderDashboard(); // 輸入時即時重新渲染
+        // 監聽過濾填寫人下拉選單
+        document.getElementById('searchUserSelect').addEventListener('change', (e) => {
+            currentSearchUser = e.target.value.trim();
+            renderDashboard(); // 選擇時即時重新渲染
         });
 
         // 統一處理過濾、排序與渲染的函數
         function renderDashboard() {
             let displayData = cloudData;
             
-            // 如果有輸入搜尋關鍵字，先進行過濾
+            // 如果有選擇特定填寫人，先進行過濾
             if (currentSearchUser !== '') {
                 displayData = cloudData.filter(item => 
-                    (item.user || '').toLowerCase().includes(currentSearchUser)
+                    (item.user || '') === currentSearchUser
                 );
             }
             
@@ -861,11 +870,11 @@
             const headers = ['"日期"', '"填寫人"', '"工作種類"', '"項目名稱"', '"摘要說明"', '"待解決與解決方案"', '"進度"', '"備註"'];
             csvContent.push(headers.join(','));
 
-            // 匯出前先套用目前的搜尋過濾條件
+            // 匯出前先套用目前的過濾條件
             let exportData = cloudData;
             if (currentSearchUser !== '') {
                 exportData = cloudData.filter(item => 
-                    (item.user || '').toLowerCase().includes(currentSearchUser)
+                    (item.user || '') === currentSearchUser
                 );
             }
 
