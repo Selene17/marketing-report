@@ -118,6 +118,7 @@
                         <select id="workCategory" name="workCategory" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none">
                             <option value="專案">專案</option>
                             <option value="例行事項">例行事項</option>
+                            <option value="臨時事項">臨時事項</option>
                             <option value="休假">休假</option>
                         </select>
                     </div>
@@ -173,8 +174,8 @@
                     <button onclick="switchView('form')" class="bg-transparent hover:bg-dark-800 text-gold-500 border border-gold-500 rounded-lg px-4 py-2 transition-colors flex items-center gap-2">
                         <i class="ph ph-arrow-left"></i>回填寫頁
                     </button>
-                    
-                    <!-- 新增：過濾填寫人下拉選單 -->
+
+                    <!-- 過濾填寫人下拉選單 -->
                     <div class="relative">
                         <i class="ph ph-funnel absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                         <select id="searchUserSelect" class="bg-dark-900 border border-gray-700 rounded-lg pl-9 pr-8 py-2 text-sm text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none cursor-pointer transition-all">
@@ -188,7 +189,7 @@
                         </select>
                         <i class="ph-bold ph-caret-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none text-xs"></i>
                     </div>
-
+                    
                     <button id="refreshBtn" onclick="fetchReports()" class="bg-dark-800 hover:bg-dark-700 text-gray-300 border border-gray-700 rounded-lg px-4 py-2 transition-colors flex items-center gap-2">
                         <i class="ph ph-arrows-clockwise" id="refreshIcon"></i>重新整理
                     </button>
@@ -220,13 +221,28 @@
                 </div>
             </div>
 
+            <!-- 群組模式切換 Tabs -->
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex space-x-1 bg-dark-900 p-1 rounded-lg border border-gray-800">
+                    <button onclick="switchGroupMode('date')" id="tabGroupDate" class="px-4 py-2 rounded-md text-sm font-medium bg-dark-700 text-gold-400 shadow-sm transition-all flex items-center gap-2">
+                        <i class="ph-bold ph-calendar-blank"></i>依日期分群
+                    </button>
+                    <button onclick="switchGroupMode('project')" id="tabGroupProject" class="px-4 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-dark-800 transition-all flex items-center gap-2">
+                        <i class="ph-bold ph-folder"></i>依專案分群
+                    </button>
+                </div>
+                <div class="text-xs text-gray-500 hidden md:block"><i class="ph ph-info mr-1"></i>點擊下方表頭可進行次級排序</div>
+            </div>
+
             <!-- 表格區塊 -->
             <div class="bg-dark-800 rounded-xl border border-gray-800 shadow-2xl overflow-hidden relative">
                 <div class="overflow-x-auto max-h-[600px]">
                     <table id="reportTable" class="w-full text-left text-sm text-gray-300">
                         <thead class="text-xs text-gray-400 uppercase bg-dark-900">
                             <tr>
-                                <!-- 將表頭加入 onclick 事件與 hover 樣式 -->
+                                <th scope="col" class="px-4 py-4 whitespace-nowrap cursor-pointer hover:text-gold-400 transition-colors select-none" onclick="handleSort('date')">
+                                    <div class="flex items-center gap-1">日期 <i id="sortIcon-date" class="ph-bold ph-caret-down text-gray-600 opacity-0 transition-all"></i></div>
+                                </th>
                                 <th scope="col" class="px-4 py-4 whitespace-nowrap cursor-pointer hover:text-gold-400 transition-colors select-none" onclick="handleSort('user')">
                                     <div class="flex items-center gap-1">填寫人 <i id="sortIcon-user" class="ph-bold ph-caret-up text-gray-600 opacity-0 transition-all"></i></div>
                                 </th>
@@ -250,7 +266,7 @@
                             </tr>
                         </thead>
                         <tbody id="tableBody" class="divide-y divide-gray-800">
-                            <tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">正在讀取試算表資料...</td></tr>
+                            <tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">正在讀取試算表資料...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -298,6 +314,7 @@
                             <select id="edit_workCategory" name="workCategory" required class="w-full bg-dark-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 appearance-none">
                                 <option value="專案">專案</option>
                                 <option value="例行事項">例行事項</option>
+                                <option value="臨時事項">臨時事項</option>
                                 <option value="休假">休假</option>
                             </select>
                         </div>
@@ -365,7 +382,7 @@
 
     </main>
 
-    <!-- 浮 কথ示 (Toast) -->
+    <!-- 浮動提示 (Toast) -->
     <div id="toastContainer" class="fixed bottom-4 right-4 z-[200] flex flex-col gap-2 pointer-events-none"></div>
 
     <script>
@@ -379,25 +396,23 @@
         const dbStatus = document.getElementById('dbStatus');
         
         // --- 排序與搜尋狀態管理 ---
-        let currentSortColumn = 'user'; // 預設排序欄位為填寫人
-        let currentSortDirection = 'asc'; // 預設排序方向為升冪 (A-Z)
-        let currentSearchUser = ''; // 預設搜尋關鍵字為空
+        let currentGroupMode = 'date'; // 'date' (依日期) 或 'project' (依專案)
+        let currentSortColumn = 'user'; // 預設群組內的排序改為：填寫人 (因為外層已經是日期了)
+        let currentSortDirection = 'asc'; // 預設排序方向改為升冪
+        let currentSearchUser = ''; 
 
         // 更新表頭圖示的 UI 狀態
         function updateSortIcons() {
-            const columns = ['user', 'category', 'itemName', 'summary', 'pending', 'progress'];
+            const columns = ['date', 'user', 'category', 'itemName', 'summary', 'pending', 'progress'];
             columns.forEach(col => {
                 const icon = document.getElementById(`sortIcon-${col}`);
                 if (icon) {
-                    // 重置基礎類別
                     icon.className = 'ph-bold inline-block ml-1 transition-all';
                     
                     if (col === currentSortColumn) {
-                        // 當前啟用的排序欄位，顯示金色並根據方向切換箭頭
                         icon.classList.add('text-gold-400', 'opacity-100');
                         icon.classList.add(currentSortDirection === 'asc' ? 'ph-caret-up' : 'ph-caret-down');
                     } else {
-                        // 未選中的欄位，圖示變淡並預設朝上
                         icon.classList.add('text-gray-600', 'opacity-30', 'ph-caret-up');
                     }
                 }
@@ -407,34 +422,49 @@
         // 處理表頭點擊事件
         window.handleSort = function(column) {
             if (currentSortColumn === column) {
-                // 如果點擊相同的欄位，切換排序方向
                 currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             } else {
-                // 如果點擊不同的欄位，變更欄位，進度預設由高到低，其餘預設 A-Z
                 currentSortColumn = column;
-                currentSortDirection = column === 'progress' ? 'desc' : 'asc';
+                currentSortDirection = column === 'progress' || column === 'date' ? 'desc' : 'asc';
             }
             
             updateSortIcons();
             if (cloudData.length > 0) {
-                renderDashboard(); // 替換為統一的渲染函數
+                renderDashboard(); 
             }
         };
 
-        // 在腳本載入時先初始化一次箭頭圖示
         document.addEventListener('DOMContentLoaded', updateSortIcons);
+
+        // 切換分群模式 (Tab)
+        window.switchGroupMode = function(mode) {
+            currentGroupMode = mode;
+            
+            const tabDate = document.getElementById('tabGroupDate');
+            const tabProject = document.getElementById('tabGroupProject');
+            
+            if (mode === 'date') {
+                tabDate.className = 'px-4 py-2 rounded-md text-sm font-medium bg-dark-700 text-gold-400 shadow-sm transition-all flex items-center gap-2';
+                tabProject.className = 'px-4 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-dark-800 transition-all flex items-center gap-2';
+            } else {
+                tabProject.className = 'px-4 py-2 rounded-md text-sm font-medium bg-dark-700 text-gold-400 shadow-sm transition-all flex items-center gap-2';
+                tabDate.className = 'px-4 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-dark-800 transition-all flex items-center gap-2';
+            }
+            
+            if (cloudData.length > 0) {
+                renderDashboard();
+            }
+        };
 
         // 監聽過濾填寫人下拉選單
         document.getElementById('searchUserSelect').addEventListener('change', (e) => {
             currentSearchUser = e.target.value.trim();
-            renderDashboard(); // 選擇時即時重新渲染
+            renderDashboard();
         });
 
-        // 統一處理過濾、排序與渲染的函數
         function renderDashboard() {
             let displayData = cloudData;
             
-            // 如果有選擇特定填寫人，先進行過濾
             if (currentSearchUser !== '') {
                 displayData = cloudData.filter(item => 
                     (item.user || '') === currentSearchUser
@@ -485,7 +515,6 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
-                    // 解決時區導致日期減一天的 Bug：將 ISO 時間精準轉成本地 YYYY-MM-DD
                     cloudData = (result.data || []).map(item => {
                         if (item.date && item.date.includes('T')) {
                             const d = new Date(item.date);
@@ -496,7 +525,7 @@
                         return item;
                     });
                     
-                    renderDashboard(); // 替換原本的 renderTable 和 updateStats
+                    renderDashboard(); 
                     dbStatus.textContent = '試算表已連線';
                     dbStatus.className = "text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded border border-green-800 ml-2 font-normal";
                 }
@@ -510,7 +539,6 @@
             }
         }
 
-        // 初始載入
         fetchReports();
 
         // --- 通用發送至 Google 試算表函數 ---
@@ -547,9 +575,8 @@
                 navDashBtn.className = 'px-3 py-2 rounded-md text-sm font-medium bg-dark-800 text-gold-400 transition-colors';
                 navFormBtn.className = 'px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-dark-700 hover:text-white transition-colors';
                 
-                // 如果是切換到 Dashboard，保留先前的搜尋條件並重新渲染
                 renderDashboard();
-                fetchReports(); // 背景取得最新資料
+                fetchReports(); 
             }
         }
 
@@ -633,11 +660,11 @@
                 document.getElementById('summary').value = '';
                 document.getElementById('pendingIssues').value = '';
                 document.getElementById('remarks').value = '';
-                document.getElementById('workCategory').value = '專案'; // 重置為專案
-                toggleLeaveMode(false, ''); // 恢復欄位顯示
+                document.getElementById('workCategory').value = '專案';
+                toggleLeaveMode(false, ''); 
                 progressInput.value = 90;
                 progressText.textContent = '90';
-                fetchReports(); // 背景重整資料
+                fetchReports(); 
             } else {
                 showToast("寫入失敗，請檢查網路連線", "error");
             }
@@ -651,16 +678,13 @@
         const tableBody = document.getElementById('tableBody');
 
         function updateStats(data) {
-            // 安全取得本地日期的 YYYY-MM-DD 格式
             const d = new Date();
             const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             
             document.getElementById('statToday').textContent = data.filter(item => {
-                // 資料已在 fetchReports 時標準化，直接精準比對字串
                 return (item.date || '') === todayStr;
             }).length;
             
-            // 排除休假的資料，避免休假拉低平均進度
             const validData = data.filter(d => d.category !== '休假');
             const avgProg = validData.length ? Math.round(validData.reduce((sum, d) => sum + (parseInt(d.progress)||0), 0) / validData.length) : 0;
             document.getElementById('statAvg').textContent = `${avgProg}%`;
@@ -668,9 +692,9 @@
             document.getElementById('statPending').textContent = data.filter(d => d.pending && d.pending.trim() !== '').length;
         }
 
-        window.toggleGroup = function(dateStr) {
-            const rows = document.querySelectorAll(`.group-row-${dateStr}`);
-            const icon = document.getElementById(`icon-${dateStr}`);
+        window.toggleGroup = function(groupId) {
+            const rows = document.querySelectorAll(`.group-row-${groupId}`);
+            const icon = document.getElementById(`icon-${groupId}`);
             
             let isHidden = false;
             rows.forEach(row => {
@@ -693,66 +717,87 @@
         function renderTable(data) {
             tableBody.innerHTML = '';
             if (data.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">試算表目前尚無資料</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-500">試算表目前尚無資料</td></tr>';
                 return;
             }
 
             const groupedData = {};
-            // 1. 將資料依「日期」進行分組收納
-            data.forEach(item => {
-                const itemDate = item.date || '未知日期';
-                if (!groupedData[itemDate]) groupedData[itemDate] = [];
-                groupedData[itemDate].push(item);
-            });
+            // 1. 根據目前選定的群組模式進行收納
+            if (currentGroupMode === 'date') {
+                data.forEach(item => {
+                    const key = item.date || '未知日期';
+                    if (!groupedData[key]) groupedData[key] = [];
+                    groupedData[key].push(item);
+                });
+            } else {
+                data.forEach(item => {
+                    const key = (item.category === '休假') ? '休假紀錄' : (item.itemName || '未分類項目');
+                    if (!groupedData[key]) groupedData[key] = [];
+                    groupedData[key].push(item);
+                });
+            }
 
-            // 2. 取得所有日期並由新到舊排序 (降冪)
-            const sortedDates = Object.keys(groupedData).sort((a, b) => new Date(b) - new Date(a));
+            // 2. 取得所有群組並排序
+            let sortedGroupKeys;
+            if (currentGroupMode === 'date') {
+                sortedGroupKeys = Object.keys(groupedData).sort((a, b) => new Date(b) - new Date(a));
+            } else {
+                sortedGroupKeys = Object.keys(groupedData).sort((a, b) => a.localeCompare(b, 'zh-TW'));
+            }
 
-            // 3. 逐一渲染每個日期群組
-            sortedDates.forEach(date => {
-                const groupItems = groupedData[date];
+            // 3. 逐一渲染每個群組
+            sortedGroupKeys.forEach(groupKey => {
+                const groupItems = groupedData[groupKey];
 
                 // --- 核心動態排序邏輯 (依使用者點選的表頭) ---
                 groupItems.sort((a, b) => {
                     let valA = a[currentSortColumn];
                     let valB = b[currentSortColumn];
                     
-                    // 防止 undefined 報錯
                     valA = valA !== undefined && valA !== null ? valA : '';
                     valB = valB !== undefined && valB !== null ? valB : '';
 
                     if (currentSortColumn === 'progress') {
-                        // 數值比較 (進度)
                         valA = parseInt(valA) || 0;
                         valB = parseInt(valB) || 0;
                         if (valA < valB) return currentSortDirection === 'asc' ? -1 : 1;
                         if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
                         return 0;
+                    } else if (currentSortColumn === 'date') {
+                        const dateA = new Date(valA || 0);
+                        const dateB = new Date(valB || 0);
+                        if (dateA < dateB) return currentSortDirection === 'asc' ? -1 : 1;
+                        if (dateA > dateB) return currentSortDirection === 'asc' ? 1 : -1;
+                        return 0;
                     } else {
-                        // 字串比較 (中文拼音/筆畫)
                         const cmp = String(valA).localeCompare(String(valB), 'zh-TW');
                         return currentSortDirection === 'asc' ? cmp : -cmp;
                     }
                 });
 
-                let formattedDate = date;
-                if(date !== '未知日期') {
+                let formattedTitle = groupKey;
+                if (currentGroupMode === 'date' && groupKey !== '未知日期') {
                     // 放棄使用 Date 解析以避免跨時區解析 Bug，直接拆解 YYYY-MM-DD 字串
-                    const parts = date.split('-');
+                    const parts = groupKey.split('-');
                     if(parts.length === 3) {
-                        formattedDate = `${parts[0]}年${parts[1]}月${parts[2]}日`;
+                        formattedTitle = `${parts[0]}年${parts[1]}月${parts[2]}日`;
                     }
+                } else if (currentGroupMode === 'project') {
+                    formattedTitle = `<span class="text-gray-500 font-normal text-sm mr-1">專案項目：</span>${groupKey}`;
                 }
+
+                // 產生安全的 ID 供折疊功能使用
+                const safeId = "grp_" + Math.random().toString(36).substr(2, 9);
 
                 // 產生群組標題列
                 const headerTr = document.createElement('tr');
                 headerTr.className = 'bg-dark-900 border-y border-gray-700 cursor-pointer hover:bg-dark-800 transition-colors select-none';
-                headerTr.onclick = () => window.toggleGroup(date);
+                headerTr.onclick = () => window.toggleGroup(safeId);
                 headerTr.innerHTML = `
-                    <td colspan="8" class="px-4 py-3 font-bold text-gold-400">
+                    <td colspan="9" class="px-4 py-3 font-bold text-gold-400">
                         <div class="flex items-center gap-2">
-                            <i id="icon-${date}" class="ph-bold ph-caret-down transition-transform text-lg"></i>
-                            <span class="text-base">${formattedDate}</span>
+                            <i id="icon-${safeId}" class="ph-bold ph-caret-down transition-transform text-lg"></i>
+                            <span class="text-base">${formattedTitle}</span>
                             <span class="text-xs font-normal text-gray-500 bg-dark-950 px-2.5 py-0.5 rounded-full ml-2 border border-gray-800">共 ${groupItems.length} 筆</span>
                         </div>
                     </td>
@@ -770,8 +815,9 @@
                     const pendingHtml = row.pending ? `<span class="text-red-400 font-medium">⚠️ ${row.pending}</span>` : `<span class="text-gray-500 italic">無</span>`;
 
                     const tr = document.createElement('tr');
-                    tr.className = `hover:bg-dark-700 transition-colors group-row-${date}`;
+                    tr.className = `hover:bg-dark-700 transition-colors group-row-${safeId}`;
                     tr.innerHTML = `
+                        <td class="px-4 py-4 whitespace-nowrap text-gray-400">${row.date || ''}</td>
                         <td class="px-4 py-4 whitespace-nowrap font-medium text-gray-200">${row.user || ''}</td>
                         <td class="px-4 py-4 whitespace-nowrap"><span class="bg-dark-900 border border-gray-700 px-2 py-1 rounded text-xs text-gray-300">${row.category || ''}</span></td>
                         <td class="px-4 py-4 text-gray-200 font-medium">${row.itemName || ''}</td>
@@ -813,7 +859,6 @@
             if (!dataToEdit) return;
 
             document.getElementById('edit_id').value = dataToEdit.id;
-            // 試算表傳回的日期可能會帶有時間格式，這裡確保轉為 YYYY-MM-DD
             let dateVal = dataToEdit.date || '';
             if(dateVal.includes('T')) dateVal = dateVal.split('T')[0];
 
@@ -821,7 +866,6 @@
             document.getElementById('edit_userName').value = dataToEdit.user || '';
             document.getElementById('edit_workCategory').value = dataToEdit.category || '';
             
-            // 根據是否為休假，動態切換編輯表單欄位顯示狀態
             toggleLeaveMode(dataToEdit.category === '休假', 'edit_');
 
             document.getElementById('edit_itemName').value = dataToEdit.itemName || '';
@@ -927,7 +971,6 @@
             const headers = ['"日期"', '"填寫人"', '"工作種類"', '"項目名稱"', '"摘要說明"', '"待解決與解決方案"', '"進度"', '"備註"'];
             csvContent.push(headers.join(','));
 
-            // 匯出前先套用目前的過濾條件
             let exportData = cloudData;
             if (currentSearchUser !== '') {
                 exportData = cloudData.filter(item => 
@@ -936,11 +979,18 @@
             }
 
             const sortedExportData = [...exportData].sort((a, b) => {
-                // 1. 日期優先降冪排序
-                const dateCmp = new Date(b.date || 0) - new Date(a.date || 0);
-                if (dateCmp !== 0) return dateCmp;
+                // 1. 確保匯出時，最外層依照目前的群組模式排
+                if (currentGroupMode === 'date') {
+                    const dateCmp = new Date(b.date || 0) - new Date(a.date || 0);
+                    if (dateCmp !== 0) return dateCmp;
+                } else {
+                    const groupA = (a.category === '休假') ? '休假紀錄' : (a.itemName || '未分類項目');
+                    const groupB = (b.category === '休假') ? '休假紀錄' : (b.itemName || '未分類項目');
+                    const itemCmp = groupA.localeCompare(groupB, 'zh-TW');
+                    if (itemCmp !== 0) return itemCmp;
+                }
 
-                // 2. 套用目前畫面上的動態排序設定
+                // 2. 套用目前畫面上的動態排序設定 (例如填寫人、進度)
                 let valA = a[currentSortColumn];
                 let valB = b[currentSortColumn];
                 valA = valA !== undefined && valA !== null ? valA : '';
@@ -951,6 +1001,12 @@
                     valB = parseInt(valB) || 0;
                     if (valA < valB) return currentSortDirection === 'asc' ? -1 : 1;
                     if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                } else if (currentSortColumn === 'date') {
+                    const dateA = new Date(valA || 0);
+                    const dateB = new Date(valB || 0);
+                    if (dateA < dateB) return currentSortDirection === 'asc' ? -1 : 1;
+                    if (dateA > dateB) return currentSortDirection === 'asc' ? 1 : -1;
                     return 0;
                 } else {
                     const cmp = String(valA).localeCompare(String(valB), 'zh-TW');
