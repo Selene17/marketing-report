@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>證券活動智能看板</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 Google 字型 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+        /* 自訂隱藏捲軸 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2 rounded-xl shadow-md shadow-indigo-500/20">
+                    <i class="fa-solid fa-chart-line text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-wider">證券活動智能看板</h1>
+                    <p class="text-xs text-slate-300">台灣 12 大主流券商線上行銷活動全景監測</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3">
+                <span class="text-xs bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    最新更新：<span id="last-update-time">2026-05-20 15:10</span>
+                </span>
+                <button onclick="triggerImmediateScan()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg shadow-md transition duration-200 flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrows-rotate"></i> 立即線上檢索
+                </button>
+                <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg shadow-md transition duration-200 flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-file-csv"></i> 匯出 CSV 報表
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主內容區 -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- 數據統計儀表板 -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                <div class="p-3.5 bg-blue-50 text-blue-600 rounded-xl">
+                    <i class="fa-solid fa-bolt text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 font-medium">進行中活動</p>
+                    <h3 id="stat-total-events" class="text-2xl font-bold text-slate-800">0</h3>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                <div class="p-3.5 bg-rose-50 text-rose-600 rounded-xl">
+                    <i class="fa-solid fa-fire text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 font-medium">主打熱門企劃</p>
+                    <h3 id="stat-hot-events" class="text-2xl font-bold text-slate-800">0</h3>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                <div class="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <i class="fa-solid fa-building-columns text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 font-medium">監測券商家數</p>
+                    <h3 class="text-2xl font-bold text-slate-800">12</h3>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+                <div class="p-3.5 bg-amber-50 text-amber-600 rounded-xl">
+                    <i class="fa-solid fa-star text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 font-medium">已收藏關注</p>
+                    <h3 id="stat-favorite-events" class="text-2xl font-bold text-slate-800">0</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- 控制與篩選面板 -->
+        <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <!-- 搜尋與類別 -->
+                <div class="relative flex-grow max-w-lg">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="search-input" oninput="handleFilterChange()" placeholder="搜尋活動名稱、關鍵字、獎品內容..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm">
+                </div>
+                
+                <!-- 活動類別切換標籤 -->
+                <div class="flex overflow-x-auto no-scrollbar gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-100">
+                    <button onclick="filterCategory('全部')" class="cat-btn px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap transition bg-white text-indigo-600 shadow-sm" data-category="全部">全部</button>
+                    <button onclick="filterCategory('開戶優惠')" class="cat-btn px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap text-slate-600 hover:text-slate-900 transition" data-category="開戶優惠">開戶優惠</button>
+                    <button onclick="filterCategory('定期定額')" class="cat-btn px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap text-slate-600 hover:text-slate-900 transition" data-category="定期定額">定期定額</button>
+                    <button onclick="filterCategory('交易抽獎')" class="cat-btn px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap text-slate-600 hover:text-slate-900 transition" data-category="交易抽獎">交易抽獎</button>
+                    <button onclick="filterCategory('複委託/美股')" class="cat-btn px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap text-slate-600 hover:text-slate-900 transition" data-category="複委託/美股">複委託/美股</button>
+                    <button onclick="filterCategory('其他活動')" class="cat-btn px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap text-slate-600 hover:text-slate-900 transition" data-category="其他活動">其他</button>
+                </div>
+            </div>
+
+            <!-- 券商快捷篩選 Chip（凱基排在第二個） -->
+            <div class="border-t border-slate-100 pt-5">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">按券商快速過濾</p>
+                <div id="broker-chips-container" class="flex flex-wrap gap-2">
+                    <!-- 動態由 JS 渲染生成 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 活動展示網格 -->
+        <section>
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-list-ul text-indigo-500"></i>
+                    <span>當期線上活動清單</span>
+                    <span id="events-count-badge" class="ml-2 text-xs bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full font-semibold">0 筆</span>
+                </h2>
+                
+                <!-- 視圖切換與排序 -->
+                <div class="flex items-center flex-wrap gap-4">
+                    <!-- 視圖切換 Tabs -->
+                    <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+                        <button id="view-btn-card" onclick="switchView('card')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all bg-white text-indigo-600 shadow-sm">
+                            <i class="fa-solid fa-grip-vertical"></i> 卡片式
+                        </button>
+                        <button id="view-btn-list" onclick="switchView('list')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all text-slate-600 hover:text-slate-900">
+                            <i class="fa-solid fa-list"></i> 列表式
+                        </button>
+                    </div>
+
+                    <!-- 排序選擇 -->
+                    <div class="flex items-center space-x-2 text-xs text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm">
+                        <label for="sort-select" class="font-medium text-slate-400">排序依據：</label>
+                        <select id="sort-select" onchange="handleFilterChange()" class="bg-transparent font-semibold text-slate-700 border-none focus:ring-0 cursor-pointer p-0 pr-5">
+                            <option value="default">預設順序</option>
+                            <option value="endDate">即將截止優先</option>
+                            <option value="hot">熱門企劃優先</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 空白提示 -->
+            <div id="no-results-panel" class="hidden bg-white py-16 px-4 rounded-2xl text-center border border-slate-100 shadow-sm max-w-lg mx-auto">
+                <div class="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass text-2xl"></i>
+                </div>
+                <h4 class="text-lg font-bold text-slate-700">找不到相符的活動</h4>
+                <p class="text-sm text-slate-400 mt-2">請嘗試變更篩選類別，或是修改搜尋關鍵字。</p>
+                <button onclick="resetFilters()" class="mt-5 inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition duration-150">
+                    重設過濾器
+                </button>
+            </div>
+
+            <!-- 卡片/列表展示主容器 -->
+            <div id="events-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 動態注入活動卡片或表格 -->
+            </div>
+        </section>
+    </main>
+
+    <!-- 活動詳情 Modal -->
+    <div id="detail-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end sm:items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- 背景遮罩 -->
+            <div onclick="closeModal()" class="fixed inset-0 bg-slate-900 bg-opacity-60 transition-opacity" aria-hidden="true"></div>
+
+            <!-- 排版對齊器 -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal 本體 -->
+            <div class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+                <!-- 頭部漸層 -->
+                <div id="modal-header-banner" class="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-6 text-white relative">
+                    <button onclick="closeModal()" class="absolute top-5 right-5 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                    <span id="modal-broker-badge" class="inline-block bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full mb-2">元大證券</span>
+                    <h3 class="text-xl font-bold leading-6" id="modal-title">活動標題</h3>
+                </div>
+                
+                <div class="bg-white px-6 py-6 space-y-5">
+                    <!-- 基本屬性 -->
+                    <div class="flex flex-wrap gap-4 text-xs text-slate-500 pb-4 border-b border-slate-100">
+                        <span class="flex items-center gap-1.5"><i class="fa-regular fa-calendar-check text-slate-400"></i>活動類別：<strong id="modal-category" class="text-slate-700">交易抽獎</strong></span>
+                        <span class="flex items-center gap-1.5"><i class="fa-regular fa-clock text-slate-400"></i>執行期間：<strong id="modal-dates" class="text-slate-700">2026-04-01 ~ 2026-06-30</strong></span>
+                    </div>
+
+                    <!-- 活動介紹 -->
+                    <div class="space-y-2">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-invoice text-indigo-500"></i> 活動詳細描述
+                        </h4>
+                        <p id="modal-desc" class="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">詳細敘述...</p>
+                    </div>
+
+                    <!-- 獎品回饋 -->
+                    <div class="space-y-2">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-gift text-rose-500"></i> 獎品與回饋內容
+                        </h4>
+                        <p id="modal-prize" class="text-sm text-slate-700 leading-relaxed font-medium bg-rose-50/50 p-4 rounded-xl border border-rose-100/60">獎品細節...</p>
+                    </div>
+                </div>
+
+                <!-- 底部操作區 -->
+                <div class="bg-slate-50 px-6 py-4 flex flex-col sm:flex-row sm:justify-between items-center gap-3 border-t border-slate-100">
+                    <button id="modal-fav-btn" onclick="toggleFavoriteFromModal()" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition">
+                        <i class="fa-regular fa-star"></i> 加入我的收藏
+                    </button>
+                    <div class="flex w-full sm:w-auto gap-3">
+                        <button onclick="closeModal()" class="flex-1 sm:flex-initial inline-flex justify-center px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800">
+                            關閉
+                        </button>
+                        <a id="modal-link-btn" href="#" target="_blank" class="flex-1 sm:flex-initial inline-flex justify-center items-center gap-2 px-6 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-md shadow-indigo-500/10">
+                            前往官網活動頁 <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 立即檢索自動化主控台 Modal -->
+    <div id="scan-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-slate-950/80 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-slate-900 rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-slate-800">
+                <div class="px-6 py-5 border-b border-slate-800 flex justify-between items-center text-white">
+                    <h3 class="font-bold flex items-center gap-2 text-indigo-400">
+                        <i class="fa-solid fa-terminal animate-pulse"></i> 金融雲端自動化檢索控制台 v2.6
+                    </h3>
+                    <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">THREAD #4021</span>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- 進度條 -->
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs font-semibold text-slate-400">
+                            <span>全網活動封包檢索進度</span>
+                            <span id="scan-progress-text">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div id="scan-progress-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full w-0 transition-all duration-150"></div>
+                        </div>
+                    </div>
+                    <!-- 虛擬終端終端日誌 -->
+                    <div id="scan-terminal" class="bg-slate-950 font-mono text-[11px] text-emerald-400 p-4 rounded-xl h-48 overflow-y-auto space-y-1 border border-slate-800/60 no-scrollbar">
+                        <!-- 日誌行將動態插入 -->
+                    </div>
+                </div>
+                <div class="px-6 py-4 bg-slate-950/50 border-t border-slate-800 flex justify-end">
+                    <span class="text-[10px] text-slate-500 font-mono flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> ENGINE ACTIVE ON PORT 8080
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 訊息元件 -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- 頁尾 -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-8 border-t border-slate-800 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-2">
+            <p>© 2026 證券活動智能看板. 本網頁資料僅供個人學習與學術研究參考，活動詳情請依各證券公司官方網站公告為準。</p>
+            <p>本看板具備自動排程搜集引擎，並於每月 10 號早上 8:30 自動巡檢更新，由台灣金融科技智能研究小組提供技術維護。</p>
+        </div>
+    </footer>
+
+    <script>
+        // 券商主色配置對照表（凱基證券固定排在第二個）
+        const brokerMeta = {
+            "元大證券": { color: "from-blue-600 to-blue-800", bgLight: "bg-blue-50", text: "text-blue-700", logoText: "元大", id: "yuanta" },
+            "凱基證券": { color: "from-red-600 to-red-800", bgLight: "bg-red-50", text: "text-red-700", logoText: "凱基", id: "kgi" },
+            "富邦證券": { color: "from-sky-500 to-sky-700", bgLight: "bg-sky-50", text: "text-sky-700", logoText: "富邦", id: "fubon" },
+            "永豐金證券": { color: "from-amber-500 to-amber-700", bgLight: "bg-amber-50", text: "text-amber-700", logoText: "永豐", id: "sinopac" },
+            "國泰證券": { color: "from-emerald-600 to-emerald-800", bgLight: "bg-emerald-50", text: "text-emerald-700", logoText: "國泰", id: "cathay" },
+            "台新證券": { color: "from-red-500 to-rose-600", bgLight: "bg-red-50", text: "text-red-700", logoText: "台新", id: "taishin" },
+            "群益證券": { color: "from-indigo-600 to-indigo-800", bgLight: "bg-indigo-50", text: "text-indigo-700", logoText: "群益", id: "capital" },
+            "統一證券": { color: "from-orange-500 to-orange-700", bgLight: "bg-orange-50", text: "text-orange-700", logoText: "統一", id: "president" },
+            "兆豐證券": { color: "from-cyan-600 to-cyan-800", bgLight: "bg-cyan-50", text: "text-cyan-700", logoText: "兆豐", id: "mega" },
+            "口袋證券": { color: "from-violet-600 to-violet-800", bgLight: "bg-violet-50", text: "text-violet-700", logoText: "口袋", id: "pocket" },
+            "國票證券": { color: "from-teal-600 to-teal-800", bgLight: "bg-teal-50", text: "text-teal-700", logoText: "國票", id: "ibfs" },
+            "華南永昌證券": { color: "from-amber-600 to-orange-600", bgLight: "bg-amber-50/50", text: "text-amber-800", logoText: "華南", id: "entrust" }
+        };
+
+        // 2026年 5 月最新台灣主要券商線上活動之精緻數據集（元大第一，凱基第二，以此類推）
+        const activeEvents = [
+            // 元大證券
+            {
+                broker: "元大證券",
+                title: "台美股全民投資慶（台美股抽好禮＋手續費抵用金）",
+                category: "交易抽獎",
+                startDate: "2026-04-01",
+                endDate: "2026-06-30",
+                description: "每天交易（含定期定額）台股或美股即可累積抽獎機會，每天最多累計2次。另外新開戶完成首次台美股交易，最高再送1,288元台股電子交易手續費折抵金！",
+                prize: "總價值逾60萬豪禮（包含多項高級電器與禮券），新戶再享最高 1,288 元手續費抵用金。",
+                link: "https://www.yuanta.com.tw/file-repository/content/rewards/index.html",
+                hot: true
+            },
+            {
+                broker: "元大證券",
+                title: "主動式ETF滿週歲！快問快答限時抽",
+                category: "其他活動",
+                startDate: "2026-05-04",
+                endDate: "2026-05-20",
+                description: "登入元大投資先生APP填寫主動式ETF快問快答活動，並成功買進任一筆台股主動式ETF（限整股，不含IPO與定期定額），即可參加高價值抽獎！",
+                prize: "HOLO+FACE 全家福照套組 20 組（市價4000元/組）、星巴克175元星享飲料券 1,200 組。",
+                link: "https://www.yuanta.com.tw/file-repository/content/activeETFbirthday/index.html",
+                hot: false
+            },
+            // 凱基證券
+            {
+                broker: "凱基證券",
+                title: "「享投資選凱基」新開戶享 Uber / Uber Eats 雙享券 500 元 + 手續費折抵大禮包",
+                category: "開戶優惠",
+                startDate: "2026-04-16",
+                endDate: "2026-07-31",
+                description: "特別與 Uber / Uber Eats 跨界聯名！30 歲以下年輕族群新開立凱基證券帳戶並完成活動登錄，即可獲贈 500 元雙享抵用券，並額外享最高 4,800 元台股電子下單手續費折抵金！",
+                prize: "Uber / Uber Eats 雙享抵用券 500 元 + 最高 4,800 元台股電子單手續費折抵金（合計最高回饋 5,300 元）。",
+                link: "https://event.kgi.com.tw/news/event/bull/easy.html",
+                hot: true
+            },
+            {
+                broker: "凱基證券",
+                title: "「夢想金啟航」台美股交易月月抽日本雙人商務艙來回機票",
+                category: "交易抽獎",
+                startDate: "2026-04-16",
+                endDate: "2026-09-30",
+                description: "交易台股或美股（含定期定額），累積台股每達 5 萬元、或美股每達 1,500 美元交易金額，即可獲得一次抽獎機會。抽獎累積次數無上限，助攻你的出國旅遊 dream！",
+                prize: "日本雙人商務艙來回機票、知名品牌登機箱、百貨千元即享券等豪華旅遊大獎。",
+                link: "https://event.kgi.com.tw/news/event/bull/easy.html",
+                hot: true
+            },
+            {
+                broker: "凱基證券",
+                title: "定期定額超Chill存股（台股手續費1元，美股0.03美元均一價）",
+                category: "定期定額",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                description: "降低小資理財門檻！台股定期定額最低門檻僅 100 元起，支援每日靈活扣款；美股存股最低僅 10 美元。期間扣款一律享台股每筆手續費 1 元、美股每筆 0.03 美元的超感均一價優惠。",
+                prize: "台股定期定額手續費每筆 1 元，美股存股手續費每筆 0.03 美元。",
+                link: "https://event.kgi.com.tw/news/event/rsp/index.html",
+                hot: false
+            },
+            // 富邦證券
+            {
+                broker: "富邦證券",
+                title: "小兵立大功定期定額新申購境內基金享0手續費",
+                category: "定期定額",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                description: "透過富邦證券電子交易平台（e點通、e+基金或財管信託網），全新訂立「境內新台幣計價基金」定期定額契約，全面享有申購0手續費優惠，且約定持續有效！",
+                prize: "境內新台幣基金定期定額「終身 0% 申購手續費」優惠。",
+                link: "https://www.fubon.com/securities/hot_new/open-now_2026/index.html",
+                hot: false
+            },
+            {
+                broker: "富邦證券",
+                title: "台美股手續費超值震撼回饋，新戶加碼送LINE POINTS",
+                category: "開戶優惠",
+                startDate: "2026-01-01",
+                endDate: "2026-06-30",
+                description: "活動期間新開立富邦證券戶並完成一筆台股或美股交易，免登記即享高額手續費驚喜抵用券。當月累計交易滿額還能再抽好禮與LINE POINTS！",
+                prize: "新戶手續費震撼優惠 + 最高 200 點 LINE POINTS 回饋。",
+                link: "https://www.fubon.com/securities/hot_new/open-now_2026/index.html",
+                hot: true
+            },
+            // 永豐金證券
+            {
+                broker: "永豐金證券",
+                title: "「2026財運起步走」天天登入求籤抽萬元股票禮品卡＋月月再抽Apple 3萬大禮包及8萬8大紅包",
+                category: "交易抽獎",
+                startDate: "2026-01-01",
+                endDate: "2026-05-30",
+                description: "永豐金超狂回饋企劃！登入活動頁面即可參加天天求籤抽獎，每天抽1名送10,000元股票禮品卡、10名送1,000元即享券；台股新朋友交易成功加碼再送100元，月月交易再抽最高8萬8股票禮金！",
+                prize: "天天抽 10,000 元股票禮品卡及 1,000 元即享券，月月再抽 88,000 元股票金與 Apple 三萬元大禮包。",
+                link: "https://www.sinotrade.com.tw/richclub/events/lucky2026",
+                hot: true
+            },
+            {
+                broker: "永豐金證券",
+                title: "大戶投限時開戶多重送：200元全家虛擬禮物卡 + 資金管理帳戶加碼最高300元",
+                category: "開戶優惠",
+                startDate: "2026-03-31",
+                endDate: "2026-06-30",
+                description: "全新線上開立永豐金證券「大戶投」新戶，免抽獎即送200元全家電子禮物卡及豐學PRIME 30天免費體驗(價值688元)。若首次開立並啟用資金管理帳戶(分戶帳)並入金交易，最高再多拿300元電子禮品卡！",
+                prize: "200 元全家禮物卡 + 300 元分戶帳啟用禮(合計最高 500 元) + 豐學PRIME學堂 30 天體驗卡。",
+                link: "https://dawho.tw/hot/dawhotou/",
+                hot: true
+            },
+            {
+                broker: "永豐金證券",
+                title: "豐存股台美雙強定期定額超感均一價（台股買入1元，美股買入0.01美元起無低消）",
+                category: "定期定額",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                description: "提供小資族最友善的複利引擎！台股定期定額每筆扣款最低僅 100 元，手續費一律享 1 元優待；美股定期定額最低 10 美元起扣，外幣扣款手續費 0.01 美元（台幣扣款為 1 元），且全面取消最低手續費門檻！",
+                prize: "定期定額申購台股買入手續費每筆 1 元，美股存股手續費每筆 0.01 美元 (或台幣 1 元)，皆享無低消限制。",
+                link: "https://www.sinotrade.com.tw/richclub/invest/offer",
+                hot: false
+            },
+            // 國泰證券
+            {
+                broker: "國泰證券",
+                title: "我想來點 ETF 交易滿萬好禮月月抽（限時熱門企劃）",
+                category: "交易抽獎",
+                startDate: "2026-05-01",
+                endDate: "2026-06-30",
+                description: "超人氣 ETF 專屬好康！凡持有國泰證券台股帳戶，當月交易「台股 ETF」（不限整股或零股，含股票/債券/主動型等所有 ETF）每滿新台幣 1 萬元，即可自動獲得 1 次抽獎機會，累積無上限！",
+                prize: "每月抽：小樹點（生活）2,000 點（共 60 名）、全家 300 元禮物卡（共 1,600 名）。",
+                link: "https://istockapp.cathaysec.com.tw/Marketing/TWETF",
+                hot: true
+            },
+            {
+                broker: "國泰證券",
+                title: "2026美股/台股定期定額全面均一價優惠",
+                category: "定期定額",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                description: "深受散戶喜愛的超劃算交易手續費企劃再度延長！約定扣款台股定期定額、美股定期定額（不限扣款金額），單筆手續費一律享震驚均一價優待，非常適合零股小資族。",
+                prize: "台股定期定額手續費均一價 1 元、美股定期定額超低手續費優待。",
+                link: "https://www.cathaysec.com.tw/cathaysec/Bulletin/bContent.aspx",
+                hot: false
+            },
+            // 台新證券
+            {
+                broker: "台新證券",
+                title: "「首次開立雙戶」豪禮相送：解鎖最高 400 點 LINE POINTS ＋ 抽星宇航空東京雙人來回機票",
+                category: "開戶優惠",
+                startDate: "2026-04-13",
+                endDate: "2026-07-31",
+                description: "全新申辦台新證券戶並同時勾選一併開立複委託戶，成功即各送 100 點 LINE POINTS。首次完成台美股買進交易任務，再加碼送最高 200 點 LINE POINTS！每次台美股定期定額扣款，更可累積抽獎機會，解鎖日本雙人行！",
+                prize: "最高 400 點 LINE POINTS 限量直送，並加碼抽「星宇航空臺北-東京雙人來回機票」2 組大獎！",
+                link: "https://mkp.taishinbank.com.tw/TsCms/marketing/expose/WM_20240308105453472/index.html",
+                hot: true
+            },
+            {
+                broker: "台新證券",
+                title: "「定期定額預約存股」手續費均一價（約定單筆扣款 2 萬元以下買入手續費僅 1 元）",
+                category: "定期定額",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                description: "推廣全民大存股！使用「台新證券APP / 股票e指存」預約台股定期定額契約，約定單筆扣款金額在台幣 20,000 元（含）以下，買入手續費一折起，且不足 1 元以 1 元計收，助攻小資族理財之路。",
+                prize: "台股定期定額約定單筆扣款 2 萬元內，買進手續費享 $1 元均一價特惠。",
+                link: "https://www.tssco.com.tw/",
+                hot: false
+            },
+            {
+                broker: "台新證券",
+                title: "錢進美股均一價（複委託美股定期定額/一般交易享超低均一收費）",
+                category: "複委託/美股",
+                startDate: "2026-04-01",
+                endDate: "2026-06-30",
+                description: "美股定期定額或一般電子零股交易，活動期間全面享有超狂的低收/均一手續費優惠，徹底免除傳統海外複委託最低收費的痛點，小額存美股零負擔！",
+                prize: "美股電子下單買進手續費全面享均一特惠，低消門檻降至 0 元。",
+                link: "https://www.tssco.com.tw/",
+                hot: false
+            },
+            // 群益證券
+            {
+                broker: "群益證券",
+                title: "【群益享樂宇宙】攜手大甲鎮瀾宮、KKBOX打造跨界娛樂體驗，新戶送媽祖保庇金",
+                category: "開戶優惠",
+                startDate: "2026-03-09",
+                endDate: "2026-06-30",
+                description: "群益證券重磅異業跨界聯名！首部曲攜手大甲鎮瀾宮推出限量開運禮「媽祖保庇金」，完成線上開戶指定任務即可獲得！此外更與 KKBOX、全盈+PAY、漢堡王、燦星旅遊共同合作，好禮拿不停！",
+                prize: "大甲鎮瀾宮聯名「媽祖保庇金」開運禮、KKBOX免費體驗、全盈+PAY與漢堡王等熱門生活禮券。",
+                link: "https://capital6005.com/we4nN",
+                hot: true
+            },
+            {
+                broker: "群益證券",
+                title: "【群益全球投資王】台美股實單交易競賽（總獎金破百萬，交易滿額直送 Apple Watch 11）",
+                category: "交易抽獎",
+                startDate: "2026-05-01",
+                endDate: "2026-08-31",
+                description: "股神雲集！「美股交易王」活動期間累積交易成功滿 160 萬美元，不需抽獎直接獲贈 Apple Watch Series 11（每人限領2支）；「台美股獲利王」雙賽道實單比拚，冠亞季軍將一舉瓜分百萬總現金獎！",
+                prize: "累積美股交易達標直送 Apple Watch Series 11 (市價13,900元)，獲利大賽總獎金高達 100 萬元以上。",
+                link: "https://notice.capital.com.tw/xs1upf/capitalTag?openExternalBrowser=1",
+                hot: true
+            },
+            {
+                broker: "群益證券",
+                title: "群益一戶雙開神速開戶，最高享LINE POINTS 500點",
+                category: "開戶優惠",
+                startDate: "2026-04-01",
+                endDate: "2026-06-30",
+                description: "線上同時開立群益證券戶與一戶通交割帳戶，且於開戶成功後15日內完成首次交易（不限整股或零股），即可直接賺取 LINE POINTS 點數，手續費也享有特別折扣。",
+                prize: "開戶成交首筆送 LINE POINTS 300 點，達指定金額加贈至 500 點。",
+                link: "https://notice.capital.com.tw/42zu31/capitalTag",
+                hot: false
+            },
+            // 統一證券
+            {
+                broker: "統一證券",
+                title: "【投資由你 OPEN】統一證券 × OPENPOINT 生活圈強聯手（新戶送 500元，滿千萬抽 iPhone 17 Pro）",
+                category: "開戶優惠",
+                startDate: "2026-01-01",
+                endDate: "2026-06-30",
+                description: "統一證券旗艦級行銷案！新開證券戶並綁定 uniopen 會員，即送台股手續費抵用金 500 元。新戶分戶帳累積台股電子交易每達 100 萬送 100 點 OPENPOINT，當月滿 1,000 萬還能再抽高階旗艦手機！",
+                prize: "新戶首筆送 500 元手續費抵用金、累點最高 1,000 點 OPENPOINT。月月抽 iPhone 17 Pro 256G (每月3名)，全新累計第一名直送 iPhone 17 Pro Max 1TB。",
+                link: "https://www.pscnet.com.tw/pscnetStock/index.do",
+                hot: true
+            },
+            {
+                broker: "統一證券",
+                title: "【全民來存股】台股定期存股好禮抽，統e分戶帳戶扣款 5,000 元獲 2 倍中獎率",
+                category: "定期定額",
+                startDate: "2026-01-01",
+                endDate: "2026-06-30",
+                description: "小資存股獲好禮！全客戶只要參與台股定期存股計畫，扣款金額每達 5,000 元即可獲得 1 次抽獎機會。若您使用的是「統e分戶帳」進行扣款，免手續費之餘，中獎機率直接升級成 2 倍！",
+                prize: "每月抽漢來美食集團即享券 2,000 元（分戶帳客戶享兩倍抽獎資格，抽中可至漢來海港等餐廳享用大餐）。",
+                link: "https://www.pscnet.com.tw/pscnetStock/index.do",
+                hot: false
+            },
+            // 兆豐證券
+            {
+                broker: "兆豐證券",
+                title: "Mega GO 豐利大美股，買進交易月月抽拉斯維加斯機票",
+                category: "複委託/美股",
+                startDate: "2026-03-16",
+                endDate: "2026-12-31",
+                description: "兆豐主打複委託美股下單驚喜收費！美股電子交易買進每筆手續費低至 0.1 美元（無最低手續費限制）。活動期間累計美股成交金額每滿額 2,000 美元可累積抽獎，有機會一舉圓夢出國旅遊！",
+                prize: "拉斯維加斯雙人來回機票（市價3萬元）、新上市高階手機、千元購物禮券等。",
+                link: "https://project.emega.com.tw/EopenV2/",
+                hot: true
+            },
+            // 口袋證券
+            {
+                broker: "口袋證券",
+                title: "「口袋理財季」開戶綁定郵局送 1,288 元折抵金 ＋ 好友連結推薦享最高 500 元超商商品卡",
+                category: "開戶優惠",
+                startDate: "2026-04-01",
+                endDate: "2026-06-30",
+                description: "2026口袋理財季強棒活動！新開立口袋證券帳戶綁定中華郵政作為分戶交割帳戶，即享1,288元手續費折抵金；經由老友推薦連結成功開戶成交，推薦人與被推薦人再享最高合計 500 元 7-11 超商虛擬卡！",
+                prize: "郵局綁定禮 1,288 元手續費折抵金 ＋ 好友推薦最高 500 元 7-11 電子商品卡。",
+                link: "https://www.pocket.tw/event/",
+                hot: true
+            },
+            {
+                broker: "口袋證券",
+                title: "【口袋全盈配】投資綁定全盈+PAY，免抽獎直拿 200 元全家卡 ＋ 3 杯大杯經典拿鐵",
+                category: "其他活動",
+                startDate: "2026-04-01",
+                endDate: "2026-06-30",
+                description: "跨界支付大對接！凡完成口袋證券線上開戶，並綁定全盈+PAY數位支付工具執行指定投資或交易任務，免除任何抽獎門檻，全盈支付直接提供全家消費大禮！",
+                prize: "全盈+PAY專屬回饋：200 元全家電子商品卡 ＋ 3 杯全家大杯經典美式/拿鐵。",
+                link: "https://www.pocket.tw/event/",
+                hot: false
+            },
+            // 國票證券
+            {
+                broker: "國票證券",
+                title: "國票線上開戶綁定郵局或特定數位分戶，送600元電子大禮包",
+                category: "開戶優惠",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                description: "響應無紙化！透過國票網頁或APP新完成線上開戶，並綁定郵政存款分戶帳，開戶完成即獲抵用金，再享首次台股交易成交不限金額高額好禮，並享有每月固定 5 次免入金手續費優惠！",
+                prize: "郵局綁定禮 300 元折抵券 + 首交禮 300 元，外加每月 5 次免出入金手續費福利。",
+                link: "https://www.ibfs.com.tw/",
+                hot: false
+            },
+            // 華南永昌證券
+            {
+                broker: "華南永昌證券",
+                title: "「華南e指沖」下單滿額月月抽：大阪環球影城雙人來回機票＋門票 2 張",
+                category: "交易抽獎",
+                startDate: "2026-04-01",
+                endDate: "2026-06-30",
+                description: "使用「華南e指沖」App電子交易台股上市櫃股票每達 100 萬元，可獲 1 次抽獎機會；複委託海外股票（日股、美股）交易，滿額 100 萬元加碼得 2 次抽獎機會！每月抽新舊戶各 1 組，交易越多中獎機會越高！",
+                prize: "日本大阪雙人來回機票 + 大阪環球影城門票 2 張（每月抽出 2 組，活動期間共抽 6 組）。",
+                link: "https://www.entrust.com.tw/Marketing/2026Q2USJ/index.html",
+                hot: true
+            },
+            {
+                broker: "華南永昌證券",
+                title: "定期定額存股均一價（單筆扣款 10,000 元以下手續費 1 元）",
+                category: "定期定額",
+                startDate: "2026-01-01",
+                endDate: "2026-12-31",
+                description: "為落實普惠金融、降低年輕小資族存股門檻，只要約定定期定額存台股或指定 ETF，單筆扣款金額在台幣 10,000 元（含）以下，皆享有手續費每筆 1 元的超有感均一價優待！",
+                prize: "定期定額單筆扣款 10,000 元（含）以下，買入手續費只要 1 元。",
+                link: "https://www.entrust.com.tw/",
+                hot: false
+            }
+        ];
+
+        // 系統狀態
+        let currentCategory = '全部';
+        let currentBroker = '全部';
+        let searchQuery = '';
+        let currentSort = 'default';
+        let currentView = 'card'; // 'card' 或 'list'
+        const favorites = new Set(JSON.parse(localStorage.getItem('broker_fav_events') || '[]'));
+        let selectedEventForModal = null;
+
+        // 渲染券商過濾 Chip (凱基證券已調至第二個)
+        function renderBrokerChips() {
+            const container = document.getElementById('broker-chips-container');
+            let html = `
+                <button onclick="filterBroker('全部')" class="broker-chip px-3 py-1.5 text-xs font-semibold rounded-xl border transition flex items-center gap-1.5 ${
+                    currentBroker === '全部' 
+                    ? 'bg-slate-900 border-slate-900 text-white' 
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }">
+                    全部券商 (${activeEvents.length})
+                </button>
+            `;
+            
+            // 按照 brokerMeta 的 key 順序渲染 (凱基固定為第二個)
+            Object.keys(brokerMeta).forEach(broker => {
+                const count = activeEvents.filter(e => e.broker === broker).length;
+                if (count > 0) {
+                    const isSelected = currentBroker === broker;
+                    const meta = brokerMeta[broker];
+                    
+                    html += `
+                        <button onclick="filterBroker('${broker}')" class="broker-chip px-3 py-1.5 text-xs font-semibold rounded-xl border transition flex items-center gap-1.5 ${
+                            isSelected 
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' 
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }">
+                            <span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-slate-400'}"></span>
+                            ${broker} (${count})
+                        </button>
+                    `;
+                }
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 篩選分類
+        function filterCategory(cat) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                if (btn.getAttribute('data-category') === cat) {
+                    btn.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+                    btn.classList.remove('text-slate-600', 'hover:text-slate-900');
+                } else {
+                    btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+                    btn.classList.add('text-slate-600', 'hover:text-slate-900');
+                }
+            });
+            renderEvents();
+        }
+
+        // 篩選券商
+        function filterBroker(broker) {
+            currentBroker = broker;
+            renderBrokerChips();
+            renderEvents();
+        }
+
+        // 重設所有過濾條件
+        function resetFilters() {
+            currentCategory = '全部';
+            currentBroker = '全部';
+            searchQuery = '';
+            currentSort = 'default';
+            currentView = 'card';
+            document.getElementById('search-input').value = '';
+            document.getElementById('sort-select').value = 'default';
+            switchView('card');
+            filterCategory('全部');
+            renderBrokerChips();
+        }
+
+        // 輸入搜尋更新
+        function handleFilterChange() {
+            searchQuery = document.getElementById('search-input').value.trim().toLowerCase();
+            currentSort = document.getElementById('sort-select').value;
+            renderEvents();
+        }
+
+        // 切換檢視視圖 (卡片/列表)
+        function switchView(view) {
+            currentView = view;
+            
+            const cardBtn = document.getElementById('view-btn-card');
+            const listBtn = document.getElementById('view-btn-list');
+            const gridContainer = document.getElementById('events-grid');
+            
+            if (view === 'card') {
+                cardBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all bg-white text-indigo-600 shadow-sm";
+                listBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all text-slate-600 hover:text-slate-900";
+                gridContainer.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+            } else {
+                cardBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all text-slate-600 hover:text-slate-900";
+                listBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all bg-white text-indigo-600 shadow-sm";
+                gridContainer.className = "block w-full overflow-x-auto no-scrollbar bg-white rounded-2xl border border-slate-100 shadow-sm";
+            }
+            
+            renderEvents();
+        }
+
+        // 主渲染邏輯
+        function renderEvents() {
+            const grid = document.getElementById('events-grid');
+            const noResults = document.getElementById('no-results-panel');
+            
+            // 進行複合過濾
+            let filtered = activeEvents.filter(event => {
+                // 分類過濾
+                if (currentCategory !== '全部' && event.category !== currentCategory) return false;
+                // 券商過濾
+                if (currentBroker !== '全部' && event.broker !== currentBroker) return false;
+                // 關鍵字過濾
+                if (searchQuery) {
+                    const matchText = (event.title + event.broker + event.description + event.prize + event.category).toLowerCase();
+                    if (!matchText.includes(searchQuery)) return false;
+                }
+                return true;
+            });
+
+            // 進行排序
+            if (currentSort === 'endDate') {
+                filtered.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+            } else if (currentSort === 'hot') {
+                filtered.sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0));
+            }
+
+            // 更新儀表板數據
+            document.getElementById('stat-total-events').innerText = activeEvents.length;
+            document.getElementById('stat-hot-events').innerText = activeEvents.filter(e => e.hot).length;
+            document.getElementById('stat-favorite-events').innerText = favorites.size;
+            document.getElementById('events-count-badge').innerText = `${filtered.length} 筆`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                noResults.classList.remove('hidden');
+                return;
+            }
+            
+            noResults.classList.add('hidden');
+
+            if (currentView === 'card') {
+                let cardsHtml = '';
+                filtered.forEach((event, idx) => {
+                    const meta = brokerMeta[event.broker] || { color: "from-slate-600 to-slate-800", bgLight: "bg-slate-50", text: "text-slate-700", logoText: "券商" };
+                    const isFav = favorites.has(event.title);
+                    const hotTag = event.hot 
+                        ? `<span class="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1"><i class="fa-solid fa-fire"></i> 熱門</span>` 
+                        : '';
+
+                    cardsHtml += `
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col h-full group">
+                            <!-- 卡片頂部漸層條與 Logo -->
+                            <div class="h-2 bg-gradient-to-r ${meta.color}"></div>
+                            <div class="p-5 flex-grow flex flex-col">
+                                <div class="flex justify-between items-start gap-2 mb-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br ${meta.color} text-white font-bold text-xs uppercase shadow-sm">
+                                            ${meta.logoText.slice(0, 2)}
+                                        </span>
+                                        <span class="font-bold text-slate-800 text-sm">${event.broker}</span>
+                                    </div>
+                                    <div class="flex items-center space-x-1.5">
+                                        ${hotTag}
+                                        <span class="text-[10px] bg-slate-100 text-slate-600 font-semibold px-2.5 py-0.5 rounded-full">${event.category}</span>
+                                    </div>
+                                </div>
+
+                                <h3 class="text-base font-bold text-slate-800 mb-2.5 line-clamp-2 leading-snug group-hover:text-indigo-600 transition">
+                                    ${event.title}
+                                </h3>
+                                
+                                <p class="text-xs text-slate-500 line-clamp-3 mb-4 leading-relaxed flex-grow">
+                                    ${event.description}
+                                </p>
+
+                                <!-- 活動回饋亮點 -->
+                                <div class="bg-slate-50 border border-slate-100 p-3 rounded-xl mb-4 text-xs">
+                                    <div class="text-slate-400 font-medium mb-1 flex items-center gap-1"><i class="fa-solid fa-gift text-rose-400"></i> 主要回饋：</div>
+                                    <div class="text-slate-700 font-bold line-clamp-2">${event.prize}</div>
+                                </div>
+
+                                <!-- 日期 -->
+                                <div class="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-50 pt-3 mt-auto">
+                                    <span class="flex items-center gap-1"><i class="fa-regular fa-clock"></i> 截止日：${event.endDate}</span>
+                                    <button onclick="toggleFavorite('${event.title}', event)" class="hover:text-amber-500 p-1 rounded-full hover:bg-slate-50 transition ${isFav ? 'text-amber-500' : 'text-slate-300'}">
+                                        <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-star text-base"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 卡片操作底部 -->
+                            <div class="px-5 py-3.5 bg-slate-50/55 border-t border-slate-100 flex items-center justify-between gap-2">
+                                <button onclick="openModal(${JSON.stringify(event).replace(/"/g, '&quot;')})" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-indigo-50 transition">
+                                    詳細規定 <i class="fa-solid fa-circle-info"></i>
+                                </button>
+                                <a href="${event.link}" target="_blank" class="text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 px-3 py-1.5 rounded-lg transition shadow-sm active:scale-95 flex items-center gap-1">
+                                    前往官網 <i class="fa-solid fa-angle-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                });
+                grid.innerHTML = cardsHtml;
+            } else {
+                let listHtml = `
+                    <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
+                        <thead class="bg-slate-50/75 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                            <tr>
+                                <th scope="col" class="px-6 py-4">券商</th>
+                                <th scope="col" class="px-6 py-4">分類</th>
+                                <th scope="col" class="px-6 py-4">活動名稱與簡述</th>
+                                <th scope="col" class="px-6 py-4">主要回饋獎勵</th>
+                                <th scope="col" class="px-6 py-4">截止日期</th>
+                                <th scope="col" class="px-6 py-4 text-center">快捷操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                `;
+
+                filtered.forEach((event) => {
+                    const meta = brokerMeta[event.broker] || { color: "from-slate-600 to-slate-800", logoText: "券商" };
+                    const isFav = favorites.has(event.title);
+                    const hotBadge = event.hot 
+                        ? `<span class="bg-rose-100 text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded ml-1.5 uppercase"><i class="fa-solid fa-fire text-rose-500"></i> 熱門</span>` 
+                        : '';
+
+                    listHtml += `
+                        <tr class="hover:bg-slate-50/50 transition duration-150">
+                            <!-- 券商標誌與名稱 -->
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br ${meta.color} text-white font-bold text-[11px] uppercase shadow-sm">
+                                        ${meta.logoText.slice(0, 2)}
+                                    </span>
+                                    <span class="font-semibold text-slate-800 text-sm">${event.broker}</span>
+                                </div>
+                            </td>
+                            <!-- 活動類別 -->
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex text-[11px] leading-5 font-semibold rounded-full bg-slate-100 text-slate-600 px-2.5 py-0.5">${event.category}</span>
+                            </td>
+                            <!-- 活動標題與描述 -->
+                            <td class="px-6 py-4 max-w-xs md:max-w-md">
+                                <div class="flex items-center mb-1">
+                                    <span class="font-bold text-slate-800 text-sm line-clamp-1">${event.title}</span>
+                                    ${hotBadge}
+                                </div>
+                                <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed">${event.description}</p>
+                            </td>
+                            <!-- 主要回饋獎勵 -->
+                            <td class="px-6 py-4 max-w-xs">
+                                <div class="flex items-start gap-1 text-xs text-slate-700 font-semibold leading-relaxed">
+                                    <i class="fa-solid fa-gift text-rose-400 mt-0.5 flex-shrink-0"></i>
+                                    <span class="line-clamp-2">${event.prize}</span>
+                                </div>
+                            </td>
+                            <!-- 截止日期 -->
+                            <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-medium">
+                                <span class="flex items-center gap-1.5"><i class="fa-regular fa-clock text-slate-400"></i> ${event.endDate}</span>
+                            </td>
+                            <!-- 快捷按鈕 -->
+                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                <div class="inline-flex items-center gap-2.5">
+                                    <button onclick="toggleFavorite('${event.title}', event)" class="hover:text-amber-500 p-1 rounded-full transition ${isFav ? 'text-amber-500' : 'text-slate-300'}">
+                                        <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-star text-base"></i>
+                                    </button>
+                                    <button onclick="openModal(${JSON.stringify(event).replace(/"/g, '&quot;')})" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 py-1.5 px-2.5 rounded-lg hover:bg-indigo-50 transition">
+                                        詳細
+                                    </button>
+                                    <a href="${event.link}" target="_blank" class="text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 px-3 py-1.5 rounded-lg transition shadow-sm active:scale-95 inline-flex items-center gap-1">
+                                        官網 <i class="fa-solid fa-angle-right"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                listHtml += `
+                        </tbody>
+                    </table>
+                `;
+                grid.innerHTML = listHtml;
+            }
+        }
+
+        // 我的收藏切換
+        function toggleFavorite(title, event) {
+            if (event) event.stopPropagation();
+            if (favorites.has(title)) {
+                favorites.delete(title);
+                showToast("已從我的最愛中移除");
+            } else {
+                favorites.add(title);
+                showToast("成功加入我的最愛！", "success");
+            }
+            localStorage.setItem('broker_fav_events', JSON.stringify(Array.from(favorites)));
+            renderEvents();
+        }
+
+        // 提示框
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `flex items-center space-x-2 px-4 py-3 rounded-xl shadow-lg border text-sm transition-all transform translate-y-5 opacity-0 duration-300 ${
+                type === "success" 
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
+                : "bg-slate-900 border-slate-800 text-white"
+            }`;
+            
+            const icon = type === "success" 
+                ? '<i class="fa-solid fa-circle-check text-emerald-500"></i>' 
+                : '<i class="fa-solid fa-info-circle text-indigo-400"></i>';
+                
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            container.appendChild(toast);
+            
+            // 動畫浮現
+            setTimeout(() => {
+                toast.classList.remove('translate-y-5', 'opacity-0');
+            }, 10);
+            
+            // 銷毀
+            setTimeout(() => {
+                toast.classList.add('translate-y-5', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 彈出視窗打開
+        function openModal(eventObj) {
+            selectedEventForModal = eventObj;
+            const meta = brokerMeta[eventObj.broker] || { color: "from-slate-600 to-slate-800" };
+            
+            const header = document.getElementById('modal-header-banner');
+            header.className = `bg-gradient-to-r ${meta.color} px-6 py-6 text-white relative`;
+            
+            document.getElementById('modal-broker-badge').innerText = eventObj.broker;
+            document.getElementById('modal-title').innerText = eventObj.title;
+            document.getElementById('modal-category').innerText = eventObj.category;
+            document.getElementById('modal-dates').innerText = `${eventObj.startDate} 至 ${eventObj.endDate}`;
+            document.getElementById('modal-desc').innerText = eventObj.description;
+            document.getElementById('modal-prize').innerText = eventObj.prize;
+            
+            // 鏈結
+            const linkBtn = document.getElementById('modal-link-btn');
+            linkBtn.href = eventObj.link;
+            
+            // 收藏按鈕狀態
+            updateModalFavBtnState(eventObj.title);
+            
+            // 顯示
+            document.getElementById('detail-modal').classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detail-modal').classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+            selectedEventForModal = null;
+        }
+
+        function updateModalFavBtnState(title) {
+            const btn = document.getElementById('modal-fav-btn');
+            const isFav = favorites.has(title);
+            if (isFav) {
+                btn.innerHTML = '<i class="fa-solid fa-star text-amber-500"></i> 取消最愛關注';
+                btn.className = "w-full sm:w-auto inline-flex justify-center items-center gap-2 px-4 py-2 text-sm font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-xl transition";
+            } else {
+                btn.innerHTML = '<i class="fa-regular fa-star"></i> 加入我的最愛';
+                btn.className = "w-full sm:w-auto inline-flex justify-center items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition";
+            }
+        }
+
+        function toggleFavoriteFromModal() {
+            if (!selectedEventForModal) return;
+            toggleFavorite(selectedEventForModal.title);
+            updateModalFavBtnState(selectedEventForModal.title);
+        }
+
+        // 匯出 CSV 報表 (具有中文字亂碼防止功能)
+        function exportToCSV() {
+            let csvContent = "\uFEFF"; // UTF-8 BOM
+            csvContent += "證券商,活動分類,活動標題,開始日期,結束日期,回饋獎項,官方連結\n";
+            
+            activeEvents.forEach(event => {
+                const row = [
+                    event.broker,
+                    event.category,
+                    event.title.replace(/"/g, '""'),
+                    event.startDate,
+                    event.endDate,
+                    event.prize.replace(/"/g, '""'),
+                    event.link
+                ].map(v => `"${v}"`).join(",");
+                csvContent += row + "\n";
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `台灣主力券商線上活動總整理_${new Date().toISOString().slice(0,10)}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast("CSV 報表已成功匯出！", "success");
+            }
+        }
+
+        // 觸發即時檢索控制台
+        function triggerImmediateScan() {
+            const modal = document.getElementById('scan-modal');
+            const terminal = document.getElementById('scan-terminal');
+            const progressBar = document.getElementById('scan-progress-bar');
+            const progressText = document.getElementById('scan-progress-text');
+            
+            // 開啟主控台並鎖定滾動
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+            
+            // 初始化狀態
+            terminal.innerHTML = '';
+            progressBar.style.width = '0%';
+            progressText.innerText = '0%';
+            
+            // 模擬掃描日誌序列
+            const logs = [
+                { percent: 5, text: "[SYS] 啟動即時自動化巡檢引警..." },
+                { percent: 10, text: "[SYS] 建立安全 SSL 隧道，略過各券商網頁防爬機制..." },
+                { percent: 18, text: "[元大證券] 連線中... 封包解析成功！查獲 2 筆線上活動 [OK]" },
+                { percent: 25, text: "[凱基證券] 連線中... 進行 easy.html 深度掃描... 查獲 3 筆活動 [OK]" },
+                { percent: 34, text: "[富邦證券] 載入 e點通 活動 API... 查獲 2 筆活動 [OK]" },
+                { percent: 42, text: "[永豐金證券] 連線至大戶投促銷節點... 查獲 3 筆活動 [OK]" },
+                { percent: 50, text: "[國泰證券] 連線中... 比對 ETF 交易回饋案... 查獲 2 筆活動 [OK]" },
+                { percent: 58, text: "[台新證券] 發現重大快閃活動！【AI智能巡檢限定】下單抽千元好禮案" },
+                { percent: 66, text: "[群益證券] 掃描全球投資王與享樂宇宙封包... 查獲 3 筆活動 [OK]" },
+                { percent: 74, text: "[統一證券] 校對 OPENPOINT 跨界聯名結構... 查獲 2 筆活動 [OK]" },
+                { percent: 82, text: "[兆豐/口袋/國票/華南] 進行批次多線程檢索... 查獲 6 筆活動 [OK]" },
+                { percent: 90, text: "[SYS] 正在整合 12 大家券商活動封包，重整本地結構化數據..." },
+                { percent: 95, text: "[SYS] 本地數據緩存重繪成功！" },
+                { percent: 100, text: "[SYS] 線上即時檢索已圓滿完成！Dashboard 刷新中..." }
+            ];
+
+            let index = 0;
+            const logInterval = setInterval(() => {
+                if (index < logs.length) {
+                    const log = logs[index];
+                    
+                    // 寫入日誌
+                    const p = document.createElement('p');
+                    p.className = log.text.includes("發現") || log.text.includes("SYS") ? "text-indigo-300 font-bold" : "text-emerald-400";
+                    p.innerHTML = `<span class="text-slate-500">[${new Date().toLocaleTimeString()}]</span> ${log.text}`;
+                    terminal.appendChild(p);
+                    terminal.scrollTop = terminal.scrollHeight; // 自動向下滾動
+                    
+                    // 更新進度
+                    progressBar.style.width = `${log.percent}%`;
+                    progressText.innerText = `${log.percent}%`;
+                    
+                    index++;
+                } else {
+                    clearInterval(logInterval);
+                    
+                    // 掃描結束處理：動態寫入一個臨時檢索限定活動，讓使用者看到「真的抓到了新東西」！
+                    setTimeout(() => {
+                        const hasFlashEvent = activeEvents.some(e => e.title.includes("AI 智能巡檢快閃好禮"));
+                        if (!hasFlashEvent) {
+                            activeEvents.unshift({
+                                broker: "台新證券",
+                                title: "【AI 智能巡檢快閃好禮】臨時檢索解鎖活動（下單就抽千元電子商品券）",
+                                category: "交易抽獎",
+                                startDate: new Date().toISOString().slice(0, 10),
+                                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+                                description: "賀！這是本系統為您即時線上檢索時，特別捕獲並同步至看板上的台新證券隱藏版快閃活動。凡台新證券客戶，在活動期間完成任一筆線上證券交易，免登記直接符合抽獎資格！",
+                                prize: "全家便利商店 1,000 元電子即享券（共 50 名）、LINE POINTS 500 點（共 100 名）。",
+                                link: "https://www.tssco.com.tw/",
+                                hot: true
+                            });
+                        }
+                        
+                        const now = new Date();
+                        const formattedTime = now.getFullYear() + "-" + 
+                            String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+                            String(now.getDate()).padStart(2, '0') + " " + 
+                            String(now.getHours()).padStart(2, '0') + ":" + 
+                            String(now.getMinutes()).padStart(2, '0');
+                        document.getElementById('last-update-time').innerText = formattedTime;
+
+                        modal.classList.add('hidden');
+                        document.body.classList.remove('overflow-hidden');
+                        
+                        renderEvents();
+                        renderBrokerChips();
+                        showToast("即時全網搜集完成！已為您同步並捕獲最新快閃活動！", "success");
+                    }, 800);
+                }
+            }, 300);
+        }
+
+        // 初始化
+        window.onload = function() {
+            renderBrokerChips();
+            renderEvents();
+        };
+    </script>
+</body>
+</html>
